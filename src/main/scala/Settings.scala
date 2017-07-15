@@ -3,9 +3,9 @@
   */
 
 object Settings {
+  final val OO = 2000000000
   final val printAlignment = false
   val CUTTHRESHOLD = 2
-  val OO = 2000000000
   val K = 14
   val MATCH_RATE = 0.9
 //    val refFilePath = ("/temp/refread/Phix1.fq", "/temp/refread/Phix2.fq")

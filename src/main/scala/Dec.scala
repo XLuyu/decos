@@ -29,14 +29,15 @@ object Dec {
   def alignByAnchor(keyValues: (String, Iterable[String])): TraversableOnce[(String, (Char,Int))] = {
     val readFile1 = new RandomAccessFile(Settings.refFilePath._1, "r")
     val readFile2 = new RandomAccessFile(Settings.refFilePath._2, "r")
-    val Ast = new SuffixTree()
-    val Ust = new SuffixTree()
+//    val Ast = new SuffixTree()
+//    val Ust = new SuffixTree()
     val alignmentGroup = ArrayBuffer[anchorAlignment]()
     val Values:Array[String] = keyValues._2.toArray.sortBy(-_.split("[+-]")(1).toInt)
     for (value <- Values){
       val tokens = value.split(raw"(?=[-+])")
-      val read = new anchoredRead(tokens(0).toInt,tokens(1).toInt,readFile1,readFile2
-      )
+      val read = new anchoredRead(tokens(0).toInt,tokens(1).toInt,readFile1,readFile2)
+//      val readST = new SuffixTree
+//      readST.append(read.seq2)
       var best = -1.0 // max score
       var bestidx = (-1,0,0) // best group to match, left offset, right offset
 //      var Avote = Ast.tidVote(read.seq1)
@@ -48,6 +49,8 @@ object Dec {
 //          bestidx = (i,Avote(i)._1,Uvote(i)._1)
 //        }
         val result = alignmentGroup(i).matchRead(read)
+//        val (offset,matchLen) = readST.tidMaxVote(alignmentGroup(i).last.seq2)
+//        val result = if (matchLen>=K) alignmentGroup(i).matchRead(read,-offset) else alignmentGroup(i).matchRead(read)
         if (result!=null && (best < 0 || best < result._1)){
           best = result._1
           bestidx = (i,result._2,result._3)

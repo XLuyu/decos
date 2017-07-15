@@ -1,5 +1,8 @@
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.Set
 import java.io.RandomAccessFile
+
+import scala.collection.mutable
 
 /**
   * Created by workshop on 04-Jul-17.
@@ -28,7 +31,7 @@ object anchoredRead {
 }
 
 class anchoredRead(idx: Int, pos: Int, file1:RandomAccessFile,file2:RandomAccessFile) {
-  final val OO = 2000000000
+  final val OO = Settings.OO
   val id:Int = idx
   var reversed = false
   var kmeridx:Int = pos
@@ -44,13 +47,14 @@ class anchoredRead(idx: Int, pos: Int, file1:RandomAccessFile,file2:RandomAccess
     seq1 = seq2
     seq2 = tmp
   }
-  def matchRead(read:anchoredRead):(Double,Int,Int) = {
+  def matchRead(read:anchoredRead,offset:Int):(Double,Int,Int) = {
     // return best pair-alignment with score,x,y
     val x = this.kmeridx - read.kmeridx
     val anchoredScore = anchoredRead.matchOneEnd(read.seq1,this.seq1,x,false)
     if (anchoredScore == -OO) return null
     var bestMatch:(Double,Int,Int) = null
-    for ( y <- 1-read.seq2.length until this.seq2.length){
+    val iterateRange = if (offset== -OO) 1-read.seq2.length until this.seq2.length else List(offset)
+    for ( y <- iterateRange){
       var result = anchoredRead.matchOneEnd(read.seq2,this.seq2,y,true)
       if (result!= -OO){
         result += anchoredScore
@@ -63,13 +67,14 @@ class anchoredRead(idx: Int, pos: Int, file1:RandomAccessFile,file2:RandomAccess
 }
 
 class anchorAlignment(read:anchoredRead) extends ArrayBuffer[anchoredRead](){
+  val K = Settings.K
   def anchor(read:anchoredRead, leftOffset:Int, rightOffset:Int){
     this += read
     read.offset1 = leftOffset
     read.offset2 = rightOffset
   }
   this.anchor(read, 0, 0)
-  def matchRead(read:anchoredRead) = this.last.matchRead(read)
+  def matchRead(read:anchoredRead,offset:Int= -Settings.OO) = this.last.matchRead(read,offset)
   def reportDoubt(kmer:String,colID:Int, report:ArrayBuffer[(String,(Char,Int))]):Int = {
     var colIDv = colID
     var seq1Left,seq2Left,seq1Right,seq2Right = 0
@@ -101,6 +106,71 @@ class anchorAlignment(read:anchoredRead) extends ArrayBuffer[anchoredRead](){
     }
     colIDv
   }
+  def reportAll(kmer:String,colID:Int, report:ArrayBuffer[(String,(Char,Int))]):Int = {
+    var colIDv = colID
+    var seq1Left,seq2Left,seq1Right,seq2Right = 0
+    for (i <- this){
+      seq1Left = Math.min(seq1Left,i.offset1)
+      seq1Right = Math.max(seq1Right, i.offset1 + i.seq1.length)
+      seq2Left = Math.min(seq2Left, i.offset2)
+      seq2Right = Math.max(seq2Right, i.offset2 + i.seq2.length)
+    }
+    val seq1KmerSet = new Array[mutable.Set[String]](this.size)
+    val seq2KmerSet = new Array[mutable.Set[String]](this.size)
+    for ( i <- this.indices){
+      val seq1 = this(i).seq1
+      seq1KmerSet(i) = mutable.Set[String]()
+      for ( j <- 0 to seq1.length-K){ seq1KmerSet(i) += seq1.substring(j,j+K)}
+      val seq2 = this(i).seq2
+      seq2KmerSet(i) = mutable.Set[String]()
+      for ( j <- 0 to seq2.length-K){ seq2KmerSet(i) += seq2.substring(j,j+K)}
+    }
+    for (colIdx <- seq1Left until seq1Right){
+      val kmerSet = mutable.Set[String]()
+      var firstRead = -1
+      var reportedSth = false
+      for ( i <- this.indices if 0 <= colIdx - this(i).offset1 && colIdx - this(i).offset1 < this(i).seq1.length){
+        if (kmerSet.isEmpty){
+          if (firstRead== -1) firstRead = i
+        } else if (kmerSet.intersect(seq1KmerSet(i)).min==kmer) {
+          val read = this (i)
+          reportedSth = true
+          report += ((kmer + colIDv, (read.seq1.charAt(colIdx - read.offset1), (read.id + colIdx - read.offset1) * (if (read.reversed) -1 else 1))))
+        }
+        kmerSet ++= seq1KmerSet(i)
+      }
+      if (reportedSth) {
+        report += ((kmer + colIDv, (this (firstRead).seq1.charAt(colIdx - this (firstRead).offset1),
+                                  (this (firstRead).id + colIdx - this (firstRead).offset1) * (if (this (firstRead).reversed) -1 else 1))))
+      }
+      colIDv += 1
+    }
+    for (colIdx <- seq2Left until seq2Right){
+      val kmerSet = mutable.Set[String]()
+      var firstRead = -1
+      var reportedSth = false
+      for ( i <- this.indices if 0 <= colIdx - this(i).offset2 && colIdx - this(i).offset2 < this(i).seq2.length){
+        if (kmerSet.isEmpty){
+          if (firstRead== -1) firstRead = i
+        } else {
+          val intersect = kmerSet.intersect(seq2KmerSet(i))
+          if (intersect.isEmpty || intersect.min==kmer) {
+            val read = this (i)
+            reportedSth = true
+            report += ((kmer + colIDv, (read.seq2.charAt(colIdx - read.offset2), (read.id + colIdx - read.offset2) * (if (read.reversed) -1 else 1))))
+          }
+        }
+        kmerSet ++= seq2KmerSet(i)
+      }
+      if (reportedSth) {
+        report += ((kmer + colIDv, (this (firstRead).seq2.charAt(colIdx - this (firstRead).offset2),
+                                  (this (firstRead).id + colIdx - this (firstRead).offset2) * (if (this (firstRead).reversed) -1 else 1))))
+      }
+      colIDv += 1
+    }
+    colIDv
+  }
+
   def printPileup():String = {
     var pileup = ""
     var seq1Left,seq2Left,seq1Right,seq2Right = 0
