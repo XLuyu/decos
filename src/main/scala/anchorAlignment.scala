@@ -3,6 +3,8 @@ import scala.collection.mutable.Set
 import java.io.RandomAccessFile
 
 import scala.collection.mutable
+import org.apache.spark._
+import org.apache.spark.graphx._
 
 /**
   * Created by workshop on 04-Jul-17.
@@ -30,9 +32,9 @@ object anchoredRead {
   }
 }
 
-class anchoredRead(idx: Int, pos: Int, file1:RandomAccessFile,file2:RandomAccessFile) {
+class anchoredRead(idx: Long, pos: Int, file1:RandomAccessFile,file2:RandomAccessFile) {
   final val OO = Settings.OO
-  val id:Int = idx
+  val id:Long = idx
   var reversed = false
   var kmeridx:Int = pos
   file1.seek(id)
@@ -75,7 +77,7 @@ class anchorAlignment(read:anchoredRead) extends ArrayBuffer[anchoredRead](){
   }
   this.anchor(read, 0, 0)
   def matchRead(read:anchoredRead,offset:Int= -Settings.OO) = this.last.matchRead(read,offset)
-  def reportDoubt(kmer:String,colID:Int, report:ArrayBuffer[(String,(Char,Int))]):Int = {
+  def reportDoubt(kmer:String,colID:Int, report:ArrayBuffer[(String,(Char,Long))]):Int = {
     var colIDv = colID
     var seq1Left,seq2Left,seq1Right,seq2Right = 0
     for (i <- this){
@@ -106,7 +108,7 @@ class anchorAlignment(read:anchoredRead) extends ArrayBuffer[anchoredRead](){
     }
     colIDv
   }
-  def reportAll(kmer:String,colID:Int, report:ArrayBuffer[(String,(Char,Int))]):Int = {
+  def reportAll(kmer:String,colID:Int, report:ArrayBuffer[(String,(Char,Long))]):Int = {
     var colIDv = colID
     var seq1Left,seq2Left,seq1Right,seq2Right = 0
     for (i <- this){
@@ -170,7 +172,106 @@ class anchorAlignment(read:anchoredRead) extends ArrayBuffer[anchoredRead](){
     }
     colIDv
   }
-
+  def reportEdges(kmer:String,colID:Int, report:ArrayBuffer[graphx.Edge[Char]]):Int = {
+    var colIDv = colID
+    var seq1Left,seq2Left,seq1Right,seq2Right = 0
+    for (i <- this){
+      seq1Left = Math.min(seq1Left,i.offset1)
+      seq1Right = Math.max(seq1Right, i.offset1 + i.seq1.length)
+      seq2Left = Math.min(seq2Left, i.offset2)
+      seq2Right = Math.max(seq2Right, i.offset2 + i.seq2.length)
+    }
+    for (colIdx <- seq1Left until seq1Right){
+      val bases = for ( i <- this if 0 <= colIdx - i.offset1 && colIdx - i.offset1 < i.seq1.length)
+        yield i.seq1.charAt(colIdx - i.offset1)
+      if (bases.max!=bases.min){
+        var last:Long = 0
+        var first:(Long,Char) = null
+        for ( i <- this if 0 <= colIdx - i.offset1 && colIdx - i.offset1 < i.seq1.length){
+          if (first!= null)
+            report += new graphx.Edge((i.id+colIdx-i.offset1)*(if (i.reversed) -1 else 1),last,i.seq1.charAt(colIdx-i.offset1))
+          last = (i.id+colIdx-i.offset1)*(if (i.reversed) -1 else 1)
+          if (first== null) first = (last,i.seq1.charAt(colIdx-i.offset1))
+        }
+        if (first!=null && first._1!=last)
+          report += new graphx.Edge(first._1,last,first._2)
+        colIDv += 1
+      }
+    }
+    for (colIdx <- seq2Left until seq2Right){
+      val bases = for ( i <- this if 0 <= colIdx - i.offset2 && colIdx - i.offset2 < i.seq2.length)
+        yield i.seq2.charAt(colIdx - i.offset2)
+      if (bases.max!=bases.min){
+        var last:Long = 0
+        var first:(Long,Char) = null
+        for ( i <- this if 0 <= colIdx - i.offset2 && colIdx - i.offset2 < i.seq2.length){
+          if (first!= null)
+            report += new graphx.Edge((i.id+colIdx-i.offset2)*(if (i.reversed) 1 else -1),last,i.seq2.charAt(colIdx-i.offset2))
+          last = (i.id+colIdx-i.offset2)*(if (i.reversed) 1 else -1)
+          if (first== null) first = (last,i.seq2.charAt(colIdx-i.offset2))
+        }
+        if (first!=null && first._1!=last)
+          report += new graphx.Edge(first._1,last,first._2)
+        colIDv += 1
+      }
+    }
+    colIDv
+  }
+  def reportEdgesTuple(kmer:String, colID:Int, report:ArrayBuffer[List[Long]]):Int = {
+    var colIDv = colID
+    var seq1Left,seq2Left,seq1Right,seq2Right = 0
+    for (i <- this){
+      seq1Left = Math.min(seq1Left,i.offset1)
+      seq1Right = Math.max(seq1Right, i.offset1 + i.seq1.length)
+      seq2Left = Math.min(seq2Left, i.offset2)
+      seq2Right = Math.max(seq2Right, i.offset2 + i.seq2.length)
+    }
+    for (colIdx <- seq1Left until seq1Right){
+      val bases = for ( i <- this if 0 <= colIdx - i.offset1 && colIdx - i.offset1 < i.seq1.length)
+        yield i.seq1.charAt(colIdx - i.offset1)
+      if (bases.max!=bases.min){
+        var first_last:(Long,Long) = null
+        for ( i <- this if 0 <= colIdx - i.offset1 && colIdx - i.offset1 < i.seq1.length){
+          var vid = (i.id+colIdx-i.offset1)*(if (i.reversed) -1 else 1)*5
+          if (i.seq1.charAt(colIdx-i.offset1)=='A') vid += 0
+          if (i.seq1.charAt(colIdx-i.offset1)=='C') vid += 1
+          if (i.seq1.charAt(colIdx-i.offset1)=='G') vid += 2
+          if (i.seq1.charAt(colIdx-i.offset1)=='T') vid += 3
+          if (i.seq1.charAt(colIdx-i.offset1)=='N') vid += 4
+          if (first_last == null) first_last = (vid,vid) else {
+            report += (List(vid,first_last._2))
+            first_last = (first_last._1,vid)
+          }
+        }
+        if (first_last!=null && first_last._1!=first_last._2)
+          report += (List(first_last._2,first_last._1))
+        colIDv += 1
+      }
+    }
+    for (colIdx <- seq2Left until seq2Right){
+      val bases = for ( i <- this if 0 <= colIdx - i.offset2 && colIdx - i.offset2 < i.seq2.length)
+        yield i.seq2.charAt(colIdx - i.offset2)
+      if (bases.max!=bases.min){
+        var first_last:(Long,Long) = null
+        for ( i <- this if 0 <= colIdx - i.offset2 && colIdx - i.offset2 < i.seq2.length){
+          var vid = (i.id+colIdx-i.offset2)*(if (i.reversed) 1 else -1)*5
+          if (i.seq2.charAt(colIdx-i.offset2)=='A') vid += 0
+          if (i.seq2.charAt(colIdx-i.offset2)=='C') vid += 1
+          if (i.seq2.charAt(colIdx-i.offset2)=='G') vid += 2
+          if (i.seq2.charAt(colIdx-i.offset2)=='T') vid += 3
+          if (i.seq2.charAt(colIdx-i.offset2)=='N') vid += 4
+          if (first_last == null) first_last = (vid,vid) else {
+            report += (List(vid,first_last._2))
+            first_last = (first_last._1,vid)
+          }
+        }
+        if (first_last!=null && first_last._1!=first_last._2)
+          report += (List(first_last._2,first_last._1))
+        colIDv += 1
+      }
+    }
+    colIDv
+  }
   def printPileup():String = {
     var pileup = ""
     var seq1Left,seq2Left,seq1Right,seq2Right = 0
