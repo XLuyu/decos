@@ -86,63 +86,6 @@ object Dec {
     readFile2.close()
     report
   }
-  def alignByAnchorEdge(keyValues: (String, Iterable[String])): TraversableOnce[graphx.Edge[Char]] = {
-    val readFile1 = new RandomAccessFile(Settings.refFilePath._1, "r")
-    val readFile2 = new RandomAccessFile(Settings.refFilePath._2, "r")
-    //    val Ast = new SuffixTree()
-    //    val Ust = new SuffixTree()
-    val alignmentGroup = ArrayBuffer[anchorAlignment]()
-    val Values:Array[String] = keyValues._2.toArray.sortBy(-_.split("[+-]")(1).toInt)
-    for (value <- Values){
-      val tokens = value.split(raw"(?=[-+])")
-      val read = new anchoredRead(tokens(0).toLong,tokens(1).toInt,readFile1,readFile2)
-      //      val readST = new SuffixTree
-      //      readST.append(read.seq2)
-      var best = -1.0 // max score
-      var bestidx = (-1,0,0) // best group to match, left offset, right offset
-      //      var Avote = Ast.tidVote(read.seq1)
-      //      var Uvote = Ust.tidVote(read.seq2)
-      for (i <- alignmentGroup.indices){
-        //        val vote = Avote(i)._2+Uvote(i)._2
-        //        if (vote>best){
-        //          best = vote
-        //          bestidx = (i,Avote(i)._1,Uvote(i)._1)
-        //        }
-        val result = alignmentGroup(i).matchRead(read)
-        //        val (offset,matchLen) = readST.tidMaxVote(alignmentGroup(i).last.seq2)
-        //        val result = if (matchLen>=K) alignmentGroup(i).matchRead(read,-offset) else alignmentGroup(i).matchRead(read)
-        if (result!=null && (best < 0 || best < result._1)){
-          best = result._1
-          bestidx = (i,result._2,result._3)
-        }
-      }
-      //      if (best>=0 && (matchOneEnd(read.seq1,alignmentGroup(bestidx._1)(0).seq1,bestidx._2,false)== -OO ||
-      //                     matchOneEnd(read.seq2,alignmentGroup(bestidx._1)(0).seq2,bestidx._3,false)== -OO)){
-      //        best = -1
-      //      }
-      if (best<0){
-        //        Ast.append(read.seq1)
-        //        Ust.append(read.seq2)
-        alignmentGroup += new anchorAlignment(read)
-      } else
-        alignmentGroup(bestidx._1).anchor(read, bestidx._2, bestidx._3)
-    }
-    var col = 0
-    val report = ArrayBuffer[graphx.Edge[Char]]()
-    for (alignment <- alignmentGroup ){
-      col = alignment.reportEdges(keyValues._1, col, report)
-    }
-    if (Settings.printAlignment){
-      val logFile = new FileWriter("/home/x/xieluyu/output/log" + keyValues._1)
-      for (alignment <- alignmentGroup ){
-        logFile.write(alignment.printPileup())
-      }
-      logFile.close()
-    }
-    readFile1.close()
-    readFile2.close()
-    report
-  }
   def alignByAnchorEdgeTuple(keyValues: (String, Iterable[String])): TraversableOnce[List[Long]] = {
     val readFile1 = new RandomAccessFile(Settings.refFilePath._1, "r")
     val readFile2 = new RandomAccessFile(Settings.refFilePath._2, "r")
@@ -187,7 +130,7 @@ object Dec {
     var col = 0
     val report = ArrayBuffer[List[Long]]()
     for (alignment <- alignmentGroup ){
-      col = alignment.reportEdgesTuple(keyValues._1, col, report)
+      col = alignment.reportAllEdgesTuple(keyValues._1, col, report)
     }
     if (Settings.printAlignment){
       val logFile = new FileWriter("/home/x/xieluyu/output/log" + keyValues._1)
@@ -222,15 +165,6 @@ object Dec {
     for (value <- values if value._1=='N' || ACGT(value._1)<=Settings.CUTTHRESHOLD)
       yield value._2 + "\t"+ ref
   }
-  def judgeColBasesG(KVs:(graphx.VertexId, Iterable[(Char,graphx.VertexId)])): TraversableOnce[String] = {
-    val values = KVs._2
-    val ACGT =  collection.mutable.Map[Char,Long]('A'->0,'C'->0,'G'->0,'T'->0)
-    for (value <- values if value._1!='N') ACGT(value._1) += 1
-    val (ref,refcnt) = ACGT.maxBy(_._2)
-    if (refcnt <= Settings.CUTTHRESHOLD) return List()
-    for (value <- values if value._1=='N' || ACGT(value._1)<=Settings.CUTTHRESHOLD)
-      yield value._2 + "\t"+ ref
-  }
   def judgeColBasesK(KVs:(Long, Iterable[Long])): TraversableOnce[String] = {
     val table = Array('A','C','G','T','N')
     val values = KVs._2.map(x => (table((x%5+5).toInt%5),(x-(if (x>=0) 0 else 4))/5))
@@ -241,34 +175,36 @@ object Dec {
     for (value <- values if value._1=='N' || ACGT(value._1)<=Settings.CUTTHRESHOLD)
       yield value._2 + "\t"+ ref
   }
-  def runG(sc: SparkContext, ifile: String = "/home/x/xieluyu/reads/lineno_seq1_seq2.txt", odir: String = "/home/x/xieluyu/output") {
-    val javaRuntime = Runtime.getRuntime
-    javaRuntime.exec("rm -r "+odir)
-    val readsFile = sc.textFile(ifile,64)
-    val P1 = readsFile.flatMap(Dec.scanKmer)
-    val P2 = P1.groupByKey(256).filter(_._2.size >1).flatMap(Dec.alignByAnchorEdgeTuple)
-//    val g = Graph.fromEdgeTuples(P2,'X') // .partitionBy(PartitionStrategy.RandomVertexCut)
-//    val gvBase = g.aggregateMessages[Char](triplet => triplet.sendToSrc(triplet.attr),(a,_) => a,TripletFields.EdgeOnly)
-//    println(g.triplets.count())
-//    val clique = g.connectedComponents
-//    val IdBaseClique = clique.vertices.innerZipJoin(gvBase)((_, col, base) => (base,col))
-//    val cliqueBaseId = IdBaseClique.map { case (vid, (base,col)) => (col, (base,vid)) }.groupByKey
-//    val P4 = cliqueBaseId.flatMap(judgeColBasesG)
-//    P4.saveAsTextFile("file://" + odir)
+  def judgeColBasesM(KVs:(Long, Iterable[Long])): TraversableOnce[String] = {
+    val table = Array('A','C','G','T','N')
+    val values = (KVs._1 :: KVs._2.toList).map(x => (table((x%5+5).toInt%5),(x-(if (x>=0) 0 else 4))/5))
+    val ACGT =  collection.mutable.Map[Char,Long]('A'->0,'C'->0,'G'->0,'T'->0)
+    for (value <- values if value._1!='N') ACGT(value._1) += 1
+    val (ref,refcnt) = ACGT.maxBy(_._2)
+    if (refcnt <= Settings.CUTTHRESHOLD) return List()
+    for (value <- values if value._1=='N' || ACGT(value._1)<=Settings.CUTTHRESHOLD)
+      yield value._2 + "\t"+ ref
   }
   def runK(sc: SparkContext, ifile: String = "/home/x/xieluyu/reads/lineno_seq1_seq2.txt", odir: String = "/home/x/xieluyu/output") {
     val javaRuntime = Runtime.getRuntime
     javaRuntime.exec("rm -r "+odir)
     val readsFile = sc.textFile(ifile,64)
     val P1 = readsFile.flatMap(Dec.scanKmer)
-    val P2 = P1.groupByKey(256).filter(_._2.size >1).flatMap(Dec.alignByAnchorEdgeTuple)
+    val P2 = P1.groupByKey(1024).filter(_._2.size >1).flatMap(Dec.alignByAnchorEdgeTuple)
     val (id_clique,converged,iterCount) = ConnectedComponent.run(sc,P2,Int.MaxValue)
     val P3 = id_clique.map(kv=>(kv._2,kv._1)).groupByKey()
     val P4 = P3.flatMap(judgeColBasesK)
-
-    //    val IdBaseClique = clique.vertices.innerZipJoin(gvBase)((_, col, base) => (base,col))
-    //    val cliqueBaseId = IdBaseClique.map { case (vid, (base,col)) => (col, (base,vid)) }.groupByKey
-    //    val P4 = cliqueBaseId.flatMap(judgeColBasesG)
+    P4.saveAsTextFile("file://" + odir)
+  }
+  def runM(sc: SparkContext, ifile: String = "/home/x/xieluyu/reads/lineno_seq1_seq2.txt", odir: String = "/home/x/xieluyu/output") {
+    val javaRuntime = Runtime.getRuntime
+    javaRuntime.exec("rm -r "+odir)
+    val readsFile = sc.textFile(ifile,64)
+    val P1 = readsFile.flatMap(Dec.scanKmer)
+    val P2 = P1.groupByKey(1024).filter(_._2.size >1).flatMap(Dec.alignByAnchorEdgeTuple)
+    val (id_clique,converged,iterCount) = ConnectedComponent.runG(sc,P2,Int.MaxValue)
+    val P3 = id_clique.map(kv=>(kv._2,kv._1)).groupByKey()
+    val P4 = P3.flatMap(judgeColBasesM)
     P4.saveAsTextFile("file://" + odir)
   }
   def run(sc: SparkContext, ifile: String = "/home/x/xieluyu/reads/lineno_seq1_seq2.txt", odir: String = "/home/x/xieluyu/output") {
@@ -289,6 +225,6 @@ object Dec {
   def main(args: Array[String]) {
     val conf = new SparkConf().setAppName("decos")
     val sc = new SparkContext(conf)
-    runK(sc)
+    runM(sc)
   }
 }

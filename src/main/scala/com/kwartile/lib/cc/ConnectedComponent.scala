@@ -242,7 +242,7 @@ object ConnectedComponent extends Serializable {
       val (nodePairsLargeStar, currLargeStarConnectivityChangeCount) = largeStar(nodePairs)
       
       val (nodePairsSmallStar, currSmallStarConnectivityChangeCount) = smallStar(nodePairsLargeStar)
-      
+
       if ((currLargeStarConnectivityChangeCount == largeStarConnectivityChangeCount &&
           currSmallStarConnectivityChangeCount == smallStarConnectivityChangeCount) ||
           (currSmallStarConnectivityChangeCount == 0 && currLargeStarConnectivityChangeCount == 0)) {
@@ -276,6 +276,36 @@ object ConnectedComponent extends Serializable {
     } else {
         (null.asInstanceOf[RDD[(Long, Long)]], didConverge, iterCount)
     }
+  }
+  def runG(sc: SparkContext, cliques:RDD[List[Long]], maxIterationCount: Int): (RDD[(Long, Long)], Boolean, Int) = {
+
+    val accum = sc.longAccumulator("Converged")
+    var nodePairs = cliques.map(buildPairs).flatMap(x=>x)
+
+    def largeStarReduce(uT:(Long,Iterable[Long])):TraversableOnce[(Long,Long)] = {
+      val u = uT._1
+      val T = uT._2.toSet
+      val m = Math.min(u,T.min)
+      val newEdge = for ( node <- T if node > u) yield (node,m)
+      if (m!=u && !newEdge.isEmpty) accum.add(1)
+      newEdge
+    }
+    def smallStarReduce(uN:(Long,Iterable[Long])):TraversableOnce[(Long,Long)] = {
+      val u = uN._1
+      val N = uN._2.toSet
+      val m = N.min
+      if (N.size > 1) accum.add(1)
+      (for ( node <- N if node != m) yield (node,m)) + Tuple2(u,m)
+    }
+    var iterCounter = 0
+    do {
+      iterCounter += 1
+      accum.reset()
+      nodePairs = nodePairs.flatMap(x => List(x,(x._2,x._1))).groupByKey().flatMap(largeStarReduce)
+      nodePairs = nodePairs.map(x => if (x._1<x._2) (x._2,x._1) else (x._1,x._2)).groupByKey().flatMap(smallStarReduce)
+      nodePairs.count()
+    } while (accum.value!=0)
+    (nodePairs,true,iterCounter)
   }
 }
 

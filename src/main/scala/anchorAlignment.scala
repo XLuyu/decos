@@ -172,51 +172,6 @@ class anchorAlignment(read:anchoredRead) extends ArrayBuffer[anchoredRead](){
     }
     colIDv
   }
-  def reportEdges(kmer:String,colID:Int, report:ArrayBuffer[graphx.Edge[Char]]):Int = {
-    var colIDv = colID
-    var seq1Left,seq2Left,seq1Right,seq2Right = 0
-    for (i <- this){
-      seq1Left = Math.min(seq1Left,i.offset1)
-      seq1Right = Math.max(seq1Right, i.offset1 + i.seq1.length)
-      seq2Left = Math.min(seq2Left, i.offset2)
-      seq2Right = Math.max(seq2Right, i.offset2 + i.seq2.length)
-    }
-    for (colIdx <- seq1Left until seq1Right){
-      val bases = for ( i <- this if 0 <= colIdx - i.offset1 && colIdx - i.offset1 < i.seq1.length)
-        yield i.seq1.charAt(colIdx - i.offset1)
-      if (bases.max!=bases.min){
-        var last:Long = 0
-        var first:(Long,Char) = null
-        for ( i <- this if 0 <= colIdx - i.offset1 && colIdx - i.offset1 < i.seq1.length){
-          if (first!= null)
-            report += new graphx.Edge((i.id+colIdx-i.offset1)*(if (i.reversed) -1 else 1),last,i.seq1.charAt(colIdx-i.offset1))
-          last = (i.id+colIdx-i.offset1)*(if (i.reversed) -1 else 1)
-          if (first== null) first = (last,i.seq1.charAt(colIdx-i.offset1))
-        }
-        if (first!=null && first._1!=last)
-          report += new graphx.Edge(first._1,last,first._2)
-        colIDv += 1
-      }
-    }
-    for (colIdx <- seq2Left until seq2Right){
-      val bases = for ( i <- this if 0 <= colIdx - i.offset2 && colIdx - i.offset2 < i.seq2.length)
-        yield i.seq2.charAt(colIdx - i.offset2)
-      if (bases.max!=bases.min){
-        var last:Long = 0
-        var first:(Long,Char) = null
-        for ( i <- this if 0 <= colIdx - i.offset2 && colIdx - i.offset2 < i.seq2.length){
-          if (first!= null)
-            report += new graphx.Edge((i.id+colIdx-i.offset2)*(if (i.reversed) 1 else -1),last,i.seq2.charAt(colIdx-i.offset2))
-          last = (i.id+colIdx-i.offset2)*(if (i.reversed) 1 else -1)
-          if (first== null) first = (last,i.seq2.charAt(colIdx-i.offset2))
-        }
-        if (first!=null && first._1!=last)
-          report += new graphx.Edge(first._1,last,first._2)
-        colIDv += 1
-      }
-    }
-    colIDv
-  }
   def reportEdgesTuple(kmer:String, colID:Int, report:ArrayBuffer[List[Long]]):Int = {
     var colIDv = colID
     var seq1Left,seq2Left,seq1Right,seq2Right = 0
@@ -239,12 +194,12 @@ class anchorAlignment(read:anchoredRead) extends ArrayBuffer[anchoredRead](){
           if (i.seq1.charAt(colIdx-i.offset1)=='T') vid += 3
           if (i.seq1.charAt(colIdx-i.offset1)=='N') vid += 4
           if (first_last == null) first_last = (vid,vid) else {
-            report += (List(vid,first_last._2))
+            report += List(vid,first_last._2)
             first_last = (first_last._1,vid)
           }
         }
         if (first_last!=null && first_last._1!=first_last._2)
-          report += (List(first_last._2,first_last._1))
+          report += List(first_last._2,first_last._1)
         colIDv += 1
       }
     }
@@ -261,16 +216,71 @@ class anchorAlignment(read:anchoredRead) extends ArrayBuffer[anchoredRead](){
           if (i.seq2.charAt(colIdx-i.offset2)=='T') vid += 3
           if (i.seq2.charAt(colIdx-i.offset2)=='N') vid += 4
           if (first_last == null) first_last = (vid,vid) else {
-            report += (List(vid,first_last._2))
+            report += List(vid,first_last._2)
             first_last = (first_last._1,vid)
           }
         }
         if (first_last!=null && first_last._1!=first_last._2)
-          report += (List(first_last._2,first_last._1))
+          report += List(first_last._2,first_last._1)
         colIDv += 1
       }
     }
     colIDv
+  }
+  def reportAllEdgesTuple(kmer:String, colID:Int, report:ArrayBuffer[List[Long]]):Int = {
+    var seq1Left,seq2Left,seq1Right,seq2Right = 0
+    for (i <- this){
+      seq1Left = Math.min(seq1Left,i.offset1)
+      seq1Right = Math.max(seq1Right, i.offset1 + i.seq1.length)
+      seq2Left = Math.min(seq2Left, i.offset2)
+      seq2Right = Math.max(seq2Right, i.offset2 + i.seq2.length)
+    }
+    val seq1KmerSet = new Array[mutable.Set[Int]](this.size)
+//    val seq2KmerSet = new Array[mutable.Set[Int]](this.size)
+    val minCommonKmer = Array.ofDim[Boolean](this.size,this.size)
+//    val hasCommonKmer = Array.ofDim[Boolean](this.size,this.size)
+    val thishash = kmer.hashCode
+    for ( i <- this.indices){
+      val seq1 = this(i).seq1
+      seq1KmerSet(i) = mutable.Set[Int]()
+      for ( j <- 0 to seq1.length-K){
+        val kmerhash = seq1.substring(j,j+K).hashCode
+        if (kmerhash<=thishash) seq1KmerSet(i) += kmerhash
+      }
+      for ( j <- 0 until i )
+        minCommonKmer(i)(j) = (seq1KmerSet(i) intersect seq1KmerSet(j)).min == thishash
+//      val seq2 = this(i).seq2
+//      seq2KmerSet(i) = mutable.Set[Int]()
+//      for ( j <- 0 to seq2.length-K){
+//        seq2KmerSet(i) += seq2.substring(j,j+K).hashCode
+//      }
+//      for ( j <- 0 until i )
+//        hasCommonKmer(i)(j) = !(seq2KmerSet(i) intersect seq2KmerSet(j)).isEmpty
+    }
+    val table = Map[Char,Int]('A'->0,'C'->1,'G'->2,'T'->3, 'N'->4)
+    for (colIdx <- seq1Left until seq1Right){
+      var clique = List[Long]()
+      var readInColumn = List[Int]()
+      for ( (i,idx) <- this.zipWithIndex if 0 <= colIdx - i.offset1 && colIdx - i.offset1 < i.seq1.length){
+        var vid = (i.id+colIdx-i.offset1)*(if (i.reversed) -1 else 1)*5+table(i.seq1.charAt(colIdx-i.offset1))
+        if (clique.isEmpty || !(for ( prev <- readInColumn ) yield minCommonKmer(idx)(prev)).contains(false))
+          clique ::= vid
+        readInColumn ::= idx
+      }
+      if (clique.size>1) report += clique
+    }
+    for (colIdx <- seq2Left until seq2Right){
+      var clique = List[Long]()
+      var readInColumn = List[Int]()
+      for ( (i,idx) <- this.zipWithIndex if 0 <= colIdx - i.offset2 && colIdx - i.offset2 < i.seq2.length){
+        var vid = (i.id+colIdx-i.offset2)*(if (i.reversed) 1 else -1)*5+table(i.seq2.charAt(colIdx-i.offset2))
+        if (clique.isEmpty || !(for ( prev <- readInColumn ) yield minCommonKmer(idx)(prev)).contains(false))
+          clique ::= vid
+        readInColumn ::= idx
+      }
+      if (clique.size>1) report += clique
+    }
+    colID
   }
   def printPileup():String = {
     var pileup = ""
