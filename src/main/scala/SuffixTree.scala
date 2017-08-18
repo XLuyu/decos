@@ -1,6 +1,7 @@
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.Map
+
 class Edge(s: Int, e: Int, d: Node, t: (Int, Int)) {
   var start = s
   var end = e
@@ -13,7 +14,7 @@ class Node() {
   var suffix: Node = _
 }
 
-class SuffixTree() {
+class SuffixTree(init_template: String = null) {
   var tid, start_idx = 0
   var T = ""
   var root = new Node()
@@ -21,6 +22,7 @@ class SuffixTree() {
   var toRoot = new Edge(-1, 0, root, null)
   falsum.edge = Array[Edge](toRoot, toRoot, toRoot, toRoot, toRoot)
   root.suffix = falsum
+  if (init_template != null) append(init_template)
 
   private def atoi(c: Char): Int = c match {
     case 'A' => 0
@@ -41,18 +43,22 @@ class SuffixTree() {
       (false, r)
     } else (s.edge(atoi(t)) != null, s)
   }
+
   private def canonize(s: Node, k: Int, p: Int): (Node, Int) = {
     var flag = true
     var (s_, k_) = (s, k)
     while (k_ < p && flag) {
       val current = s_.edge(atoi(T(k_)))
-      if (current.end - current.start > p - k_) { flag = false } else {
+      if (current.end - current.start > p - k_) {
+        flag = false
+      } else {
         k_ += current.end - current.start
         s_ = current.dest
       }
     }
     (s_, k_)
   }
+
   private def update(s: Node, k: Int, i: Int): (Node, Int) = {
     var oldr = root
     var end_r = test_and_split(s, k, i - 1, T(i - 1))
@@ -68,6 +74,7 @@ class SuffixTree() {
     if (oldr != root) oldr.suffix = sk._1
     sk
   }
+
   def append(template: String) {
     start_idx = 0
     val oldlen = T.length
@@ -79,6 +86,7 @@ class SuffixTree() {
     }
     tid += 1
   }
+
   def matchPatternSuffix(pattern: String): List[(Int, Int, Int, Int)] = {
     // return list of (append tid, template start, pattern start, pattern end), pattern end not inclusive
     var ret = List[(Int, Int, Int, Int)]()
@@ -104,7 +112,6 @@ class SuffixTree() {
               reported = true
             }
             s = s.suffix
-            pstart_idx += 1
             if (k < p) current = s.edge(atoi(pattern(k)))
             while (k < p && current.end - current.start <= p - k) {
               s = current.dest
@@ -112,6 +119,7 @@ class SuffixTree() {
               if (k < p) current = s.edge(atoi(pattern(k)))
             }
           }
+          pstart_idx += 1
         }
       }
       if (k == p && s == root && s.edge(atoi(pattern(p))) == null)
@@ -128,6 +136,11 @@ class SuffixTree() {
       ret = (s.edge(atoi(pattern(k))).tag._1, s.edge(atoi(pattern(k))).tag._2, pstart_idx, pattern.length) :: ret
     ret
   }
+
+  def pairwiseLCS(pattern: String, minMatchLen: Int = 0): List[(Int, Int, Int)] = { // (tStart,pStart,matchLen)
+    matchPatternSuffix(pattern).map(x => (x._2, x._3, x._4 - x._3))
+  }
+
   def tidVote(pattern: String): Array[(Int, Int)] = {
     val voteCount = mutable.Map[(Int, Int), Int]()
     val matches = matchPatternSuffix(pattern)
@@ -140,25 +153,30 @@ class SuffixTree() {
       if (vote(k._1)._2 < v) vote(k._1) = (k._2, v)
     vote
   }
+
   def tidMaxVote(pattern: String): (Int, Int) = {
     val voteCount = mutable.Map[(Int, Int), Int]()
     val matches = matchPatternSuffix(pattern)
-    if (matches.isEmpty) return (0,0)
-    val maxVote = matches.maxBy(x=>x._4-x._3)
-    (maxVote._2-maxVote._3,maxVote._4 - maxVote._3)
+    if (matches.isEmpty) return (0, 0)
+    val maxVote = matches.maxBy(x => x._4 - x._3)
+    (maxVote._2 - maxVote._3, maxVote._4 - maxVote._3)
   }
 }
+
 object SuffixTree {
   def main(args: Array[String]) {
     var st = new SuffixTree()
-//    st.append("TCTGATGAGTCGAAAAATTATCTTGATAAAGCAGGAATTACTACTGCTTGTTTACGAATTAAATCGAAGTGGACTGCTGGCGGAAAATGAGAAAATTCGA")
-//    st.append("ATTAAATCGAAGTGGACTGCTGGCGGAAAATGAGAAAATTCGACCTATCCTTGCGCAGCTCGAGAAGCTCTTACTTTGCGACCTTTCGCCATCAACTAAC")
-//    st.append("CCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCAATCCAAACTTTGTTACTCGTCAGAAAATCGAAATCATCTTCGGTTAAAT")
-//    st.append("CCCACAAAGTCCAGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCAATCCAAACTTAGTTACTCGTCAGAAAATCGG")
-//    st.append("AAACTCAACAGGAGCAGGAAAGCGAGGGTATCCCACAAAGTCCAGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCA")
-    st.append("GTCGAAAAATTATCTTGATAAAGCAGGAATTACTACTGCTTGTTTACGAATTAAATCGAAGTGGACTGCTGGCGGAAAATGAGAAAATTCGACCTATCCT")
-    println(st.matchPatternSuffix("AACGCAGCGACGAGCACGAGAGCGGTCAGTAGCTATCCAAACTTTGTTACTCGTCAGAAAATCGAAATCATCTTCGGTTAAATCCAAAACGGCAGAAGCC"))
-    for ((k,v) <- st.tidVote("AACGCAGCGACGAGCACGAGAGCGGTCAGTAGCTATCCAAACTTTGTTACTCGTCAGAAAATCGAAATCATCTTCGGTTAAATCCAAAACGGCAGAAGCC"))
-      println(k,v)
+    //    st.append("TCTGATGAGTCGAAAAATTATCTTGATAAAGCAGGAATTACTACTGCTTGTTTACGAATTAAATCGAAGTGGACTGCTGGCGGAAAATGAGAAAATTCGA")
+    //    st.append("ATTAAATCGAAGTGGACTGCTGGCGGAAAATGAGAAAATTCGACCTATCCTTGCGCAGCTCGAGAAGCTCTTACTTTGCGACCTTTCGCCATCAACTAAC")
+    st.append("CAGTAAATAAAATAAAAGATAAGAATAAAAAAAATCATTGATATAAATTCAGTTAATATTTGTAGTGATGATAAAAATATAAAATTGAGAGTTAATAATA")
+    //    st.append("CCCACAAAGTCCAGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCAATCCAAACTTAGTTACTCGTCAGAAAATCGG")
+    //    st.append("AAACTCAACAGGAGCAGGAAAGCGAGGGTATCCCACAAAGTCCAGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCA")
+
+    //    st.append("GTCGAAAAATTATCTTGATAAAGCAGGAATTACTACTGCTTGTTTACGAATTAAATCGAAGTGGACTGCTGGCGGAAAATGAGAAAATTCGACCTATCCT")
+    //                                               CCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCAATCCAAACTTTGTTACTCGTCAGAAAATCGAAATCATCTTCGGTTAAAT
+    println(st.matchPatternSuffix("TTAAGTAAGGGAAAGATCATAAGACCATATCTGAAAAATCTAAATCCACTCCAACTTGCCGCTGATTGCATTGAAACAGTAAATAAAATAAAAGATAAGAATAAAAAAAATCATTGATATAAATTCAGTTAATATTTGTAGTGATGAAAAAAGAGAG").map(x => (x._2, x._3, x._4 - x._3)).sortBy(_._2))
+    println(st.pairwiseLCS("TTAAGTAAGGGAAAGATCATAAGACCATATCTGAAAAATCTAAATCCACTCCAACTTGCCGCTGATTGCATTGAAACAGTAAATAAAATAAAAGATAAGAATAAAAAAAATCATTGATATAAATTCAGTTAATATTTGTAGTGATGAAAAAAGAGAG", 14))
+    for ((k, v) <- st.tidVote("CCCACAAAGTCCAGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCAATCCAAACTTAGTTACTCGTCAGAAAATCGG"))
+      println(k, v)
   }
 }
