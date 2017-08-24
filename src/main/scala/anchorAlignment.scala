@@ -4,7 +4,6 @@ import java.io.RandomAccessFile
 
 import scala.collection.mutable
 import org.apache.spark._
-import org.apache.spark.graphx._
 
 /**
   * Created by workshop on 04-Jul-17.

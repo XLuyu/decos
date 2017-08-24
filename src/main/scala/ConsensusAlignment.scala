@@ -1,11 +1,11 @@
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.Set
 import scala.collection.mutable.Map
+import scala.io.Source
 import java.io.RandomAccessFile
 
 import scala.collection.mutable
 import org.apache.spark._
-import org.apache.spark.graphx._
 
 /**
   * Created by workshop on 04-Jul-17.
@@ -61,9 +61,10 @@ class ConsensusSequence(init: String) {
   def checkGap(idx: Int, newChars: Array[Char]): Unit = {
     var gapCount = 0
     var i = idx
-    while (i < vote.length && vote(i).maxBy(_._2)._2 == vote(i)('-')) {
-      gapCount += 1
+    while (i < vote.length && gapCount<newChars.length && vote(i).maxBy(_._2)._2 == vote(i)('-')) {
+      vote(i)(newChars(gapCount)) += 1
       i += 1
+      gapCount += 1
     }
     if (gapCount < newChars.length) insert(i, newChars.slice(gapCount, newChars.length))
     for (j <- 0 until newChars.length - gapCount)
@@ -90,10 +91,18 @@ object ConsensusAlignment {
       }
       null
     }
+    def compactLength(a: (Int, Int, Int)): Int ={
+      var i = a._2
+      var j = a._2+a._3-1
+      while (i < a._2+a._3-1 && groupSeq(i)==groupSeq(i+1)) i += 1
+      while (j>a._2 && groupSeq(j)==groupSeq(j-1)) j -= 1
+      Math.max(j-i+1,1)
+    }
     val mapping = Array.fill[Int](groupSeq.length)(-1)
-    val LCS = readST.pairwiseLCS(groupSeq, K).filter(_._3 > K).sortBy(-_._3)
-    //    println(groupSeq)
-    //    println(matches)
+    val lengthThreshold = Math.log(readSeq.length)/Math.log(2)
+    val LCS = readST.pairwiseLCS(groupSeq).filter(_._3>lengthThreshold).filter(compactLength(_)>2).sortBy(-_._3)//
+//    println(groupSeq)
+//    println(LCS)
     var matchSeg = List[(Int, Int, Int)]()
     for (m <- LCS) {
       var sharped = m
@@ -139,20 +148,23 @@ object ConsensusAlignment {
       mapping(i) = -3
       i -= 1
     }
+//    for (i <- mapping) printf("%d,",i)
+//    println()
     (matchCount, spanCount, mapping)
   }
-
-  def main(args: Array[String]) {
-    val read2 = new MappingRead(1, 1, "CCCACAAAGTCCAGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCAATCCAAACTTAGTTACTCGTCAGAAAATCGG",
-      "CCCACAAAGTCCAGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCAATCCAAACTTAGTTACTCGTCAGAAAATCGG")
-    val read1 = new MappingRead(2, 1, "ATCCGGTACCCACAAAGTCCAGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCAATCCAAACTTAGTTACTCGTCAG",
-      "AGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGGAGCGGTCAGTAGCAATCCAAACTTAGTTACTCGTCAGAAAATCGGATCCTACCAAA")
-    val read3 = new MappingRead(3, 1, "TCCAGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCAATCCAAACTTAGTTACTCGTCAGAAATCGGATGGCTGAAT",
-      "ATGGGTCCAAGATCCCACAAAGTCCAGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCAATCCAAACTTAGTTACTC")
-    val read4 = new MappingRead(4, 1, "AAAGTCCAGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCAATCCAAACTTAGTTACTCGTCAGAAAATCGGATGGC",
-      "GTCCAAGATCCCACAAAGTCCAGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCAATCCAAACTTAGTTACTCGTCA")
-    val read5 = new MappingRead(5, 1, "CAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCAATCCAAACTTAGTTACTCGTCAGAAAATCGGATGGCTGAATGAGTACCCAATGATCAGTACCAGT",
-      "ACGTTTGACTAGTACGGTACGTAGCATGGGTCCAAGATCCCACAAAGTCCAGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTC")
+  def test1(): Unit ={
+    val read1 = new MappingRead(1, 1, "TTATCCTTTGAATGGTCGCCATGATGGTGGTTATTATACCGTCAAGGACTGTGTGACTATTGACGTCCTTCCCCGTACGCCGGGCAATAACGTTTATGTT",
+      "GCCAGCCTGCAACGTACCTTCAAGAAGTCCTTTACCAGCTTTAGCCATAGCACCAGAAACAAAACTAGGGGCGGCCTCATCAGGGTTAGGAACATTAGAG")
+    val read2 = new MappingRead(2, 1, "ACCGTCAAGGACTGTGTGACTATTGACGTCCTTCCCCGTACGCCGGGCAATAACGTTTATGTTGGTTTCATGGTTTGGTCTAACTTTACCGCTACTAAAT",
+      "TATCAGCGGCAGACTTGCCACCAAGTCCAACCAAATGAAGCAACTTATCAGAAACGGCAGAAGTGCCAGACTGCAACGTACCTTCAAGAAGTCCTTTACC")
+    val read3 = new MappingRead(3, 1, "GACGTCCTTCCCCGTACGCCGGGCAATAACGTTTATGTTGGTTTCATGGTTTGGTCTAACTTTACCGCTACTAAATGCCGCGGATTGGTTTCGCTGAATC",
+      "GTATCCTTTCCTTTATCAGCGGCAGACTTGCCACCAAGTCCAACCAAATCAAGCAACTTATCAGAAACGGCAGAAGTGCCAGCCTGCAACGTACATTCAA")
+    val read4 = new MappingRead(4, 1, "CCCCGTACGCCGGGCAATAACGTTTATGTTGGTTTCATGGTTTGGTCTAACTTTACCGCTACTAAATGCCGCGGATTGGTTTCCTGAATCAGGTTATTAA",
+      "ATGCAGCAGCAAGATAATCACGAGTATCCTTTCCTTTATCAGCGGCAGACTTGCCACCAAGTCCAACCAAATCAAGCAACTTATCAGAAACGGCAGAAGT")
+    val read5 = new MappingRead(5, 1, "CGTACGCCGGGCAATAACGTTTATGTTGGTTTCATGGTTTGGTCTAACTTTACCGCTACTAAATGCCGCGGATTGGATTCGCTGAATCAGGTTATTTAAG",
+      "CAAGATAATCACGAGTATCCTTTCCTTTATCAGCGGCAGACTTGCCACCAAGTCCAACCAAATCAAGCAACTTATCAGAAACGGCAGAAGTGCCAGCCTG")
+    val read6 = new MappingRead(6, 1, "GGGCAATAACGTTTATGTTGGTTTCATGGTTTGGTCTAACTTTACCGCTACTAAATGCCGCGGATTGGTTTCGCTGAATCAGGTTATTAAAGAGATTATT",
+      "GCAGCAAGATAATCACGAGTATCCTTTCCTTTATAAGCGGCAGACTTGCCACCAAGTCCAACCAAATCAAGCTACTTATCAGAAACGGCAGAAGTGCCAG")
     val ca = new ConsensusAlignment(read1)
     var r: (Int, Array[Int], Array[Int]) = null
     r = ca.align(read2, new SuffixTree(read2.seq1), new SuffixTree(read2.seq2))
@@ -163,10 +175,80 @@ object ConsensusAlignment {
     ca.joinAndUpdate(read4, r._2, r._3)
     r = ca.align(read5, new SuffixTree(read5.seq1), new SuffixTree(read5.seq2))
     ca.joinAndUpdate(read5, r._2, r._3)
+    r = ca.align(read6, new SuffixTree(read6.seq1), new SuffixTree(read6.seq2))
+    ca.joinAndUpdate(read6, r._2, r._3)
     println(ca.printPileup())
     val result = ArrayBuffer[List[Long]]()
     ca.reportAllEdgesTuple("GAGCGGTCAGTAGC",result)
     println(result)
+  }
+  def test2(): Unit ={
+    val read1 = new MappingRead(1, 1, "CATCGACGCTGTCCGGCGATCAACAATCTGGTGCAGTACCACCTGCTCGTTTTTCGTCTCGCGCTGAATGCCAATTTCATCAAGAACCAGCAGATCCACT",
+      "AACTTTCCGAAGGCCAGAAACGTTGTGAGGAGATCAACCGTCAGAATCGTCAGTTGCGGGTGGAAATAATTCTGAATCGCTCTGGCATCCAGCCATTGCA")
+    val read2 = new MappingRead(2, 1, "GCTGTCCGGCGATCAACAATCTGGTGCAGTACCACCTGCTCGTTTTTCGTCTCGCGCTGAATGCCAATTTCATCAAGAACCAGCAGATCCACTTCGCACA",
+      "ATTCAAGACGGTAGCGGAGTGGCGCGAGTGGCAACTTTCCGAAGGCCAGAAACGTTGTGAGAAGATCAACCGTCAGAATCGTCAGTTGCGGGTGGTAAAA")
+    val read3 = new MappingRead(3, 1, "TGTCCGGCGATCAACAATCTGGTGCAGTACCACCTGCTCGTTTTTCGTCTCGCGCTGAATGCCAATTTCATCAAGAACCAGCAGATCCACTTCGCACAGT",
+      "GCCATTAAAGACGGTAGCGGAGTGGCGCGAGTGGCAACATTCCGAAGGGCAGAAACGTTGTGAGGAGATCAACCGTCAGAATCGTCAGTTGCGGGGGGAA")
+    val read4 = new MappingRead(4, 1, "TCCGGCGATCAACAATCTGGTGCAGTACCACCTGCTCGTTTTTCGTCTCGCGCTGAATGCCAATTTCATCAAGAACCAGCAGATCCACTTCGCACAGTTC",
+      "AGACGGTAGCGGAGTGGCGCGAGTGGCAACTTTCCGAAGGCCAGAAACGTTGTTAGGAGATCAACCGTCAGAATCGTCAGTTGCGGGTGGTAAAAATTCT")
+    val read5 = new MappingRead(5, 1, "CGATCAACAATCTGGTGCAGTACCACCTGCTCGTTTTTCGTCTCGCGCTGAATGCCAATTTCATCAAGAACCAGCAGATCCACTTCGCACAGTTCCCGCA",
+      "GTAGCGGAGTGGCGCGAGTGGCAACTTTCCGAAGGCCAGAAACGTTGTGAGGAGATCAACCGTCAGAATCGTCAGTTGCGGGTGGAAAAAATTCTGAATC")
+    val read6 = new MappingRead(6, 1, "CTGGTGCAGTACCACCTGCTCGTTTTTCGTCTCGCGCTGAATGCCAATTTCATCAAGAACCAGCAGATCCACTTCGCACAGTTCCCGCAAAAATTTTTCG",
+      "GCGGAGTGGCGCGAGTGGCAACTTTCCGAAGGCCAGAAACGTTGTGAGGAGATCAACCGTCAGAATCGTCAGTTGCGGGTGGAAAAATTTCTGACTCGCT")
+    val ca = new ConsensusAlignment(read1)
+    var r: (Int, Array[Int], Array[Int]) = null
+    r = ca.align(read2, new SuffixTree(read2.seq1), new SuffixTree(read2.seq2))
+    ca.joinAndUpdate(read2, r._2, r._3)
+    r = ca.align(read3, new SuffixTree(read3.seq1), new SuffixTree(read3.seq2))
+    ca.joinAndUpdate(read3, r._2, r._3)
+    r = ca.align(read4, new SuffixTree(read4.seq1), new SuffixTree(read4.seq2))
+    ca.joinAndUpdate(read4, r._2, r._3)
+    r = ca.align(read5, new SuffixTree(read5.seq1), new SuffixTree(read5.seq2))
+    ca.joinAndUpdate(read5, r._2, r._3)
+    r = ca.align(read6, new SuffixTree(read6.seq1), new SuffixTree(read6.seq2))
+    ca.joinAndUpdate(read6, r._2, r._3)
+    println(ca.printPileup())
+    val result = ArrayBuffer[List[Long]]()
+    ca.reportAllEdgesTuple("GAGCGGTCAGTAGC",result)
+    println(result)
+  }
+  def test3(): Unit ={
+    val read1 = new MappingRead(1, 1, "GAAGAAAAAACCTTTTTGTTTAAAGATGATCTTCGGAACGCGGATCCAGAATATATAAAAACCCATCAGAGCCAGTGCGCATAATAACCATGTCGTTATT",
+      "AGTTAATGCCAGGCCTGGTACCACTGCTGCTGACCTTTGCTTGTATGTGGCTACTGCGCAAAAAAGTTAACCCGCTGTGGATCATCGTTGGCTTCGTCGT")
+    val read2 = new MappingRead(2, 1, "GAAGAAAAAACCTTTTTGTTTAAAGATGATCTTCGGAACGCGGATCCAGAATATATAAAAACCCATCAGAGCCAGTGCGCTTAATAACCATGTCGTTATT",
+      "AATGCCAGGCCTGGTACCACTGCTGCTGACCTTTGCTTGTATGTGGCTACTGCGCAAAAAAGTTAACCCGCTGTGGATCATCGTTGGCTTCTTCGTCATC")
+    val ca = new ConsensusAlignment(read1)
+    var r: (Int, Array[Int], Array[Int]) = null
+    r = ca.align(read2, new SuffixTree(read2.seq1), new SuffixTree(read2.seq2))
+    ca.joinAndUpdate(read2, r._2, r._3)
+    println(ca.printPileup())
+    val result = ArrayBuffer[List[Long]]()
+    ca.reportAllEdgesTuple("GAGCGGTCAGTAGC",result)
+    println(result)
+  }
+  def testFromFile(): Unit ={
+    val readArray = ArrayBuffer[MappingRead]()
+    var n = 0
+    var ca:ConsensusAlignment = null
+    var r: (Int, Array[Int], Array[Int]) = null
+    for (line <- Source.fromFile("Demo.txt").getLines) {
+      val read = line.split(" ")
+      n += 1
+      readArray += new MappingRead(n,1,read(0),read(1))
+      if (n==1){
+        ca = new ConsensusAlignment(readArray(0))
+      } else {
+        r = ca.align(readArray.last, new SuffixTree(readArray.last.seq1), new SuffixTree(readArray.last.seq2))
+        ca.joinAndUpdate(readArray.last, r._2, r._3)
+      }
+    }
+    println(ca.printPileup())
+    val result = ArrayBuffer[List[Long]]()
+    ca.reportAllEdgesTuple("GAGCGGTCAGTAGC",result)
+    println(result)
+  }
+  def main(args: Array[String]): Unit = {
+    testFromFile()
   }
 }
 
@@ -205,6 +287,8 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
           inserted += 1
         }
         consensus.addCount(inserted + i, '-')
+      } else {
+        while (consensus.charAt(inserted + i) == '-') inserted += 1
       }
     }
     if (last + 1 != seq.length) {
@@ -254,13 +338,14 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
         while (consensus1.columnID(refidx) != read.column1(i)) {
           if (!first) {
             // 48-bit identifier(base offset in input file) | 8 bit alignment gap offset | 3 bit base code
-            val baseCode = ((((read.id + i) << 8) + gapCount) << 3) + 5
+            // tried bitwise operation, it gather hashCode of records and skew the partition
+            val baseCode = ((read.id + i)*200 + gapCount)*6 + 5
             columns1(refidx) += ((idx, baseCode * (if (read.reversed) -1 else 1)))
           }
           refidx += 1
           gapCount += 1
         }
-        val baseCode = ((read.id + i) << 11) + table(read.seq1(i))
+        val baseCode = (read.id + i)*1200 + table(read.seq1(i))
         columns1(refidx) += ((idx, baseCode * (if (read.reversed) -1 else 1)))
         refidx += 1
         first = false
@@ -271,13 +356,13 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
         var gapCount = 0
         while (consensus2.columnID(refidx) != read.column2(i)) {
           if (!first) {
-            val baseCode = ((((read.id + i) << 8) + gapCount) << 3) + 5
+            val baseCode = ((read.id + i)*200 + gapCount)*6 + 5
             columns2(refidx) += ((idx, baseCode * (if (read.reversed) 1 else -1)))
           }
           refidx += 1
           gapCount += 1
         }
-        val baseCode = ((read.id + i) << 11) + table(read.seq2(i))
+        val baseCode = (read.id + i)*1200 + table(read.seq2(i))
         columns2(refidx) += ((idx, baseCode * (if (read.reversed) 1 else -1)))
         refidx += 1
         first = false

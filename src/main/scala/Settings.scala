@@ -6,7 +6,7 @@ object Settings {
   final val OO = 2000000000
   final val printAlignment = false
   final val MAX_READ_LEN = 150
-  final val MAX_INDEL = 20
+  final val MAX_INDEL = 2
   val CUTTHRESHOLD = 2
   val K = 14
   val MATCH_RATE = 0.9
