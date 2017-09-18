@@ -104,17 +104,6 @@ object Dec {
       for (i <- alignmentGroup.indices){
 //        println(alignmentGroup(i).consensus1.sequence())
         val align = alignmentGroup(i).align(read,readST1,readST2)
-//        if (align!=null) {
-//          println(readST1.pairwiseLCS(alignmentGroup(i).consensus1.sequence(), K))
-//          for ( i <- align._2) {
-//            printf("%d,", i)
-//          }
-//          println("----")
-//          for ( i <- align._3) {
-//            printf("%d,", i)
-//          }
-//          println("----")
-//        }
         if (align!=null && (bestAlign==null || align._1 > bestAlign._1)){
           best = i
           bestAlign = align
@@ -122,10 +111,7 @@ object Dec {
       }
       if (bestAlign==null){
         alignmentGroup += new ConsensusAlignment(read)
-//        println("new AG")
       } else {
-//        println("best",best)
-//        println(readST1.pairwiseLCS(alignmentGroup(best).consensus1.sequence(), K))
         alignmentGroup(best).joinAndUpdate(read, bestAlign._2, bestAlign._3)
       }
     }
@@ -133,7 +119,7 @@ object Dec {
     for (alignment <- alignmentGroup ){
       alignment.reportAllEdgesTuple(keyValues._1, report)
     }
-    if (report.nonEmpty && Settings.printAlignment){
+    if (report.nonEmpty && true){
       val logFile = new FileWriter("/home/x/xieluyu/log/" + keyValues._1)
       for (alignment <- alignmentGroup ){
         logFile.write(alignment.printPileup())
