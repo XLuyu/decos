@@ -11,17 +11,18 @@ import org.apache.spark._
   * Created by workshop on 04-Jul-17.
   */
 object MappingRead {
-  def apply(idx: Long, pos: Int, file1: RandomAccessFile, file2: RandomAccessFile): MappingRead = {
+  def apply(idx: Long, pos: Int, file1: RandomAccessFile, file2: RandomAccessFile, complement:Boolean): MappingRead = {
     file1.seek(idx)
     file2.seek(idx)
     val seq1 = file1.readLine()
     val seq2 = file2.readLine()
-    new MappingRead(idx, pos, seq1, seq2)
+    new MappingRead(idx, pos, seq1, seq2, complement)
   }
 }
 
-class MappingRead(idx: Long, pos: Int, file1: String, file2: String) {
+class MappingRead(idx: Long, pos: Int, file1: String, file2: String, complement:Boolean=false) {
   val id: Long = idx
+  var complemented = complement
   var reversed = false
   var kmeridx: Int = pos
   var seq1 = file1
@@ -34,6 +35,9 @@ class MappingRead(idx: Long, pos: Int, file1: String, file2: String) {
     val tmp = seq1
     seq1 = seq2
     seq2 = tmp
+  }
+  if (complement){
+    seq1 = Util.reverseComplement(seq1)
   }
 }
 
@@ -276,11 +280,12 @@ object ConsensusAlignment {
 }
 
 class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
+  var consensus0 = if (read.complemented) new ConsensusSequence(read.seq2) else null
   var consensus1 = new ConsensusSequence(read.seq1)
-  var consensus2 = new ConsensusSequence(read.seq2)
+  var consensus2 = if (!read.complemented) new ConsensusSequence(read.seq2) else null
   this += read
   read.column1 = consensus1.columnID.toArray
-  read.column2 = consensus2.columnID.toArray
+  read.column2 = (if (read.complemented) consensus0 else consensus2).columnID.toArray
 
   def updateConsensus(consensus: ConsensusSequence, mapping: Array[Int], seq: String, readColumn: Array[Int]) {
     var inserted = 0
@@ -335,88 +340,103 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
 
   def joinAndUpdate(read: MappingRead, mapping1: Array[Int], mapping2: Array[Int]) {
     this += read
+    val consensus_ = if (read.complemented) consensus0 else consensus2
     updateConsensus(consensus1, mapping1, read.seq1, read.column1)
-    updateConsensus(consensus2, mapping2, read.seq2, read.column2)
+    if (consensus_ == null){
+      if (read.complemented){
+        consensus0 = new ConsensusSequence(read.seq2)
+        read.column2 = consensus0.columnID.toArray
+      } else {
+        consensus2 = new ConsensusSequence(read.seq2)
+        read.column2 = consensus2.columnID.toArray
+      }
+    } else
+    updateConsensus(consensus_, mapping2, read.seq2, read.column2)
   }
 
   def align(read: MappingRead, readST1: SuffixTree, readST2: SuffixTree): (Int, Array[Int], Array[Int]) = {
+    val consensus_ = if (read.complemented) consensus0 else consensus2
     val (count1, span1, mapping1) = ConsensusAlignment.alignOneEnd(consensus1.sequence(), read.seq1, readST1)
     if (mapping1 == null || count1 < span1 * Settings.MATCH_RATE) return null
-    val (count2, span2, mapping2) = ConsensusAlignment.alignOneEnd(consensus2.sequence(), read.seq2, readST2)
+    if (consensus_ == null) return (2 * count1 - span1, mapping1, null)
+    val (count2, span2, mapping2) = ConsensusAlignment.alignOneEnd(consensus_.sequence(), read.seq2, readST2)
     if (mapping2 == null || count2 < span2 * Settings.MATCH_RATE) return null
     (2 * count1 - span1 + 2 * count2 - span2, mapping1, mapping2)
   }
 
   def reportAllEdgesTuple(kmer: String, report: ArrayBuffer[List[Long]]): Unit = {
+    def baseEncode(fileno:Int,position:Long,gapCount:Int,baseCode:Int): Long ={
+      // outdated:48-bit identifier(base offset in input file) | 8 bit alignment gap offset | 3 bit base code
+      // tried bitwise operation, it gathers hashCode of records and skew the partition
+      var id = gapCount * 1000000000000L + position
+      (id*6+baseCode)*2+fileno
+    }
     val seq1KmerSet = new Array[mutable.Set[Int]](this.size)
     val minCommonKmer = Array.ofDim[Boolean](this.size, this.size)
     val thishash = kmer.hashCode
     for (i <- this.indices) {
-      val seq1 = this (i).seq1
+      val seq1 = this(i).seq1
       seq1KmerSet(i) = mutable.Set[Int]()
       for (j <- 0 to seq1.length - ConsensusAlignment.K) {
-        val kmerhash = seq1.substring(j, j + ConsensusAlignment.K).hashCode
+        val kmerhash = Util.minKmerByRC(seq1.substring(j, j + ConsensusAlignment.K)).hashCode
         if (kmerhash <= thishash) seq1KmerSet(i) += kmerhash
       }
       for (j <- 0 until i)
         minCommonKmer(i)(j) = (seq1KmerSet(i) intersect seq1KmerSet(j)).min == thishash
     }
     val table = mutable.Map[Char, Int]('A' -> 0, 'C' -> 1, 'G' -> 2, 'T' -> 3, 'N' -> 4, '-' -> 5)
+    val columns0 = if (consensus0!=null) Array.fill[ArrayBuffer[(Int, Long)]](consensus0.columnID.size)(ArrayBuffer[(Int, Long)]()) else null
     val columns1 = Array.fill[ArrayBuffer[(Int, Long)]](consensus1.columnID.size)(ArrayBuffer[(Int, Long)]())
-    val columns2 = Array.fill[ArrayBuffer[(Int, Long)]](consensus2.columnID.size)(ArrayBuffer[(Int, Long)]())
+    val columns2 = if (consensus2!=null) Array.fill[ArrayBuffer[(Int, Long)]](consensus2.columnID.size)(ArrayBuffer[(Int, Long)]()) else null
     for (idx <- this.indices) {
       val read = this (idx)
+      // anchored mate
       var refidx = 0
       var first = true
       for (i <- read.column1.indices) {
         var gapCount = 0
         while (consensus1.columnID(refidx) != read.column1(i)) {
           if (!first) {
-            // 48-bit identifier(base offset in input file) | 8 bit alignment gap offset | 3 bit base code
-            // tried bitwise operation, it gather hashCode of records and skew the partition
-            val baseCode = ((read.id + i) * 200 + gapCount) * 6 + 5
-            columns1(refidx) += ((idx, baseCode * (if (read.reversed) -1 else 1)))
+            val baseCode = if (read.complemented)
+              baseEncode(if (read.reversed) 1 else 0, read.id + read.seq1.length-1-i, gapCount, table('-'))
+            else
+              baseEncode(if (read.reversed) 1 else 0, read.id + i, gapCount, table('-'))
+            columns1(refidx) += ((idx, baseCode))
           }
           refidx += 1
           gapCount += 1
         }
-        val baseCode = (read.id + i) * 1200 + table(read.seq1(i))
-        columns1(refidx) += ((idx, baseCode * (if (read.reversed) -1 else 1)))
+        val baseCode = if (read.complemented)
+          baseEncode(if (read.reversed) 1 else 0, read.id + read.seq1.length-1-i, 0, table(Util.complement(read.seq1(i))))
+        else
+          baseEncode(if (read.reversed) 1 else 0, read.id + i, 0, table(read.seq1(i)))
+        columns1(refidx) += ((idx, baseCode))
         refidx += 1
         first = false
       }
+      // the other mate
+      val consensus_ = if (read.complemented) consensus0 else consensus2
+      val columns_ = if (read.complemented) columns0 else columns2
       refidx = 0
       first = true
       for (i <- read.column2.indices) {
         var gapCount = 0
-        //        try {
-        while (consensus2.columnID(refidx) != read.column2(i)) {
+        while (consensus_.columnID(refidx) != read.column2(i)) {
           if (!first) {
-            val baseCode = ((read.id + i) * 200 + gapCount) * 6 + 5
-            columns2(refidx) += ((idx, baseCode * (if (read.reversed) 1 else -1)))
+            val baseCode = baseEncode(if (!read.reversed) 1 else 0, read.id + i, gapCount,table('-'))
+            columns_(refidx) += ((idx, baseCode))
           }
           refidx += 1
           gapCount += 1
         }
-        //        } catch {
-        //          case e: Throwable => {
-        //            println("Exception at Line 365!")
-        //            println(consensus2.sequence())
-        //            for ( k <- consensus2.columnID) print(k+",")
-        //            println()
-        //            for ( k <- read.column2) print(k+",")
-        //            println()
-        //            println(read.seq2)
-        //            throw e
-        //          }
-        //        }
-        val baseCode = (read.id + i) * 1200 + table(read.seq2(i))
-        columns2(refidx) += ((idx, baseCode * (if (read.reversed) 1 else -1)))
+        val baseCode = baseEncode(if (!read.reversed) 1 else 0, read.id + i, 0,table(read.seq2(i)))
+        columns_(refidx) += ((idx, baseCode))
         refidx += 1
         first = false
       }
     }
-    for (column <- columns1) {
+    if (columns0!=null)
+    for (column <- columns0) {
       var edge = List[Long]()
       var prev = List[Int]()
       for (j <- column) {
@@ -427,6 +447,18 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
       }
       if (edge.size > 1) report += edge
     }
+    for (column <- columns1) {
+      var edge = List[Long]()
+      var prev = List[Int]()
+      for (j <- column) {
+        var allCommonMin = true
+        for (k <- prev) allCommonMin &= minCommonKmer(j._1)(k)
+        if (allCommonMin) edge ::= j._2 * (if (this(j._1).complemented) -1 else 1)
+        prev ::= j._1
+      }
+      if (edge.size > 1) report += edge
+    }
+    if (columns2!=null)
     for (column <- columns2) {
       var edge = List[Long]()
       var prev = List[Int]()
@@ -441,10 +473,24 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
   }
 
   def printPileup(): String = {
-    var pileup = f"${"Consensus"}%20s " + consensus1.sequence(true) + "|" + consensus2.sequence(true) + "\n"
+    var pileup = f"${"Consensus"}%20s " +
+      (if (consensus0!=null) consensus0.sequence(true) else "") + "|" +
+      consensus1.sequence(true) + "|" +
+      (if (consensus2!=null) consensus2.sequence(true) else "") + "\n"
     for (read <- this) {
       pileup += f"${read.id}%20s "
       var refidx = 0
+      if (read.complemented)
+      for (i <- read.column2.indices) {
+        while (consensus0.columnID(refidx) != read.column2(i)) {
+          pileup += " "
+          refidx += 1
+        }
+        pileup += read.seq2(i)
+        refidx += 1
+      }
+      pileup += " " * (if (consensus0!=null) consensus0.columnID.length - refidx else 0) + "|"
+      refidx = 0
       for (i <- read.column1.indices) {
         while (consensus1.columnID(refidx) != read.column1(i)) {
           pileup += " "
@@ -455,6 +501,7 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
       }
       pileup += " " * (consensus1.columnID.length - refidx) + "|"
       refidx = 0
+      if (!read.complemented)
       for (i <- read.column2.indices) {
         while (consensus2.columnID(refidx) != read.column2(i)) {
           pileup += " "

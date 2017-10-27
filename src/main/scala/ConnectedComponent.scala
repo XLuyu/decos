@@ -15,23 +15,26 @@ object ConnectedComponent extends Serializable {
     def largeStarReduce(uT:(Long,Iterable[Long])):TraversableOnce[(Long,Long)] = {
       val u = uT._1
       val T = uT._2.toSet
-      val m = Math.min(u,T.min)
-      val newEdge = for ( node <- T if node > u) yield (node,m)
-      if (m!=u && !newEdge.isEmpty) accum.add(1)
+      val m = (T+u).minBy(Math.abs)
+      val newEdge = for ( node <- T if Math.abs(node) > u) yield if (node<0) (-node,-m) else (node,m)
+      if (m!=u && newEdge.nonEmpty) accum.add(1)
       newEdge
     }
     def smallStarReduce(uN:(Long,Iterable[Long])):TraversableOnce[(Long,Long)] = {
       val u = uN._1
       val N = uN._2.toSet
-      val m = N.min
+      val m = N.minBy(Math.abs)
       if (N.size > 1) accum.add(1)
       (for ( node <- N if node != m) yield (node,m)) + Tuple2(u,m)
     }
-
+    def duplicateEdge(e:(Long,Long)) = List(
+      if (e._1<0) (-e._1,-e._2) else e,
+      if (e._2<0) (-e._2,-e._1) else (e._2,e._1)
+    )
     var edges = nodePair
     do {
       accum.reset()
-      edges = edges.flatMap(x => List(x,(x._2,x._1))).groupByKey().flatMap(largeStarReduce)
+      edges = edges.flatMap(duplicateEdge).groupByKey().flatMap(largeStarReduce)
       edges = edges.groupByKey().flatMap(smallStarReduce)
       edges.count()
     } while (accum.value!=0)
@@ -39,7 +42,7 @@ object ConnectedComponent extends Serializable {
   }
   def runByNodeList(sc: SparkContext, nodeList:RDD[List[Long]]): RDD[(Long, Long)] = {
     def listToPair(nodes:List[Long]) : List[(Long, Long)] = {
-      val m = nodes.min
+      val m = nodes.minBy(Math.abs)
       for ( i <- nodes if i!=m) yield (i,m)
     }
     val nodePair = nodeList.flatMap(listToPair)
