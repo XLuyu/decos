@@ -2,7 +2,7 @@
   * Created by workshop on 19-Sep-17.
   */
 object Util {
-  val complement = Map('A'->'T','T'->'A','C'->'G','G'->'C')
+  val complement = Map('A'->'T','T'->'A','C'->'G','G'->'C','N'->'N','-'->'-')
   def reverseComplement(seq:String):String={
     for ( i <- seq.reverse ) yield complement(i)
   }

@@ -1,10 +1,12 @@
-import java.io.{ FileWriter, RandomAccessFile }
+import java.io._
 import scala.collection.mutable.ArrayBuffer
-
+import org.apache.hadoop.io.{LongWritable, Text}
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.apache.spark.HashPartitioner
+import org.apache.spark.rdd._
 import org.apache.spark._
+import scala.io.Source
 
 import ConnectedComponent._
 
@@ -13,99 +15,28 @@ object Dec {
   val K = Settings.K
   val MATCH_RATE = Settings.MATCH_RATE
 
-  def scanKmer(read: String): TraversableOnce[(String, String)] = {
-    val id_read1_read2 = read.split("\t")
-    val id = id_read1_read2(0)
-    val read1 = id_read1_read2(1)
-    val read2 = id_read1_read2(2)
-    // s is starting index of kmer (1-based), t is ending index (0-based)
-    // 1-base enable negative position to represent second end of read
-    (
-      for (t <- K to read1.length() if !read1.substring(t - K, t).contains('N')) yield
-        if ("AC" contains read1(t - (K + 1) / 2)) (read1.substring(t - K, t), id + "+" + (t - K + 1) + "+")
-        else (Util.reverseComplement(read1.substring(t - K, t)), id + "+" + (read1.length() - t + 1) + "-")
-    ) ++ (
-      for (t <- K to read2.length() if !read2.substring(t - K, t).contains('N')) yield
-        if ("AC" contains read2(t - (K + 1) / 2)) (read2.substring(t - K, t), id + "-" + (t - K + 1) + "+")
-        else (Util.reverseComplement(read2.substring(t - K, t)), id + "-" + (read2.length() - t + 1) + "-")
-    )
+  def decomposeKmer(read: (Int, Long,String)): TraversableOnce[(String, (Int,Long,Int,Boolean))] = {
+    // return: (kmer,(fileno,offset,kmerPos,Complement))
+    val (fileno, offset, record) = read
+    val sequence = record.split("\n")(1)
+    for (t <- K to sequence.length() if !sequence.substring(t - K, t).contains('N')) yield
+      if ("AC" contains sequence(t - (K + 1) / 2))
+        (sequence.substring(t - K, t),(fileno,offset,t - K,false))
+      else
+        (Util.reverseComplement(sequence.substring(t - K, t)),(fileno,offset,sequence.length() - t,true))
   }
-  def alignByAnchor(keyValues: (String, Iterable[String])): TraversableOnce[List[Long]] = {
-    val readFile1 = new RandomAccessFile(Settings.refFilePath._1, "r")
-    val readFile2 = new RandomAccessFile(Settings.refFilePath._2, "r")
-    //    val Ast = new SuffixTree()
-    //    val Ust = new SuffixTree()
-    val alignmentGroup = ArrayBuffer[anchorAlignment]()
-    val Values: Array[String] = keyValues._2.toArray.sortBy(-_.split("[+-]")(1).toInt)
-    for (value <- Values) {
-      val tokens = value.split(raw"(?=[-+])")
-      val read = new anchoredRead(tokens(0).toLong, tokens(1).toInt, readFile1, readFile2)
-      //      val readST = new SuffixTree
-      //      readST.append(read.seq2)
-      var best = -1.0 // max score
-      var bestidx = (-1, 0, 0) // best group to match, left offset, right offset
-      //      var Avote = Ast.tidVote(read.seq1)
-      //      var Uvote = Ust.tidVote(read.seq2)
-      for (i <- alignmentGroup.indices) {
-        //        val vote = Avote(i)._2+Uvote(i)._2
-        //        if (vote>best){
-        //          best = vote
-        //          bestidx = (i,Avote(i)._1,Uvote(i)._1)
-        //        }
-        val result = alignmentGroup(i).matchRead(read)
-        //        val (offset,matchLen) = readST.tidMaxVote(alignmentGroup(i).last.seq2)
-        //        val result = if (matchLen>=K) alignmentGroup(i).matchRead(read,-offset) else alignmentGroup(i).matchRead(read)
-        if (result != null && (best < 0 || best < result._1)) {
-          best = result._1
-          bestidx = (i, result._2, result._3)
-        }
-      }
-      //      if (best>=0 && (matchOneEnd(read.seq1,alignmentGroup(bestidx._1)(0).seq1,bestidx._2,false)== -OO ||
-      //                     matchOneEnd(read.seq2,alignmentGroup(bestidx._1)(0).seq2,bestidx._3,false)== -OO)){
-      //        best = -1
-      //      }
-      if (best < 0) {
-        //        Ast.append(read.seq1)
-        //        Ust.append(read.seq2)
-        alignmentGroup += new anchorAlignment(read)
-      } else
-        alignmentGroup(bestidx._1).anchor(read, bestidx._2, bestidx._3)
-    }
-    var col = 0
-    val report = ArrayBuffer[List[Long]]()
-    for (alignment <- alignmentGroup) {
-      col = alignment.reportAllEdgesTuple(keyValues._1, col, report)
-    }
-    if (Settings.printAlignment) {
-      val logFile = new FileWriter("/home/x/xieluyu/output/log" + keyValues._1)
-      for (alignment <- alignmentGroup) {
-        logFile.write(alignment.printPileup())
-      }
-      logFile.close()
-    }
-    readFile1.close()
-    readFile2.close()
-    report
-  }
-  def alignByAnchorST(keyValues: (String, Iterable[String])): TraversableOnce[List[Long]] = {
-    val readFile1 = new RandomAccessFile(Settings.refFilePath._1, "r")
-    val readFile2 = new RandomAccessFile(Settings.refFilePath._2, "r")
+  def alignByAnchorST(keyValues: (String, Iterable[(Int,Long,Int,Boolean)])): TraversableOnce[List[Long]] = {
+    val fileHandles = for ( filename <- Settings.inputFilePath) yield new RandomAccessFile(filename, "r")
     val alignmentGroup = ArrayBuffer[ConsensusAlignment]()
-    val Values: Array[String] = keyValues._2.toArray.sortBy(-_.split("[+-]")(1).toInt)
-    var cnt = 0
-    for (value <- Values) {
-      //      println("------- read",cnt)
-      cnt += 1
-      val tokens = value.split(raw"(?=[+-])")
-      val read = MappingRead(tokens(0).toLong, tokens(1).toInt, readFile1, readFile2, tokens(2) == "-")
-      val readST1 = new SuffixTree(read.seq1)
-      val readST2 = new SuffixTree(read.seq2)
+    val Values = keyValues._2.toArray.sortBy(-_._3)
+//    val t1 = System.currentTimeMillis()
+    for ((fileno,offset,pos,compl) <- Values) {
+      val read = MappingRead(fileno, offset, pos, compl, fileHandles(fileno))
+      val readST = new SuffixTree(read.seq)
       var best = -1
-      var bestAlign: (Int, Array[Int], Array[Int]) = null
-      //      println("--- read seq1",read.seq1)
+      var bestAlign: (Int, Array[Int]) = null
       for (i <- alignmentGroup.indices) {
-        //        println(alignmentGroup(i).consensus1.sequence())
-        val align = alignmentGroup(i).align(read, readST1, readST2)
+        val align = alignmentGroup(i).align(read, readST)
         if (align != null && (bestAlign == null || align._1 > bestAlign._1)) {
           best = i
           bestAlign = align
@@ -114,13 +45,12 @@ object Dec {
       if (bestAlign == null) {
         alignmentGroup += new ConsensusAlignment(read)
       } else {
-        alignmentGroup(best).joinAndUpdate(read, bestAlign._2, bestAlign._3)
+        alignmentGroup(best).joinAndUpdate(read, bestAlign._2)
       }
     }
+//    val t2 = System.currentTimeMillis()
     val report = ArrayBuffer[List[Long]]()
-    for (alignment <- alignmentGroup) {
-      alignment.reportAllEdgesTuple(keyValues._1, report)
-    }
+    alignmentGroup.foreach(_.reportAllEdgesTuple(keyValues._1, report))
     if (report.nonEmpty && false) {
       val logFile = new FileWriter("/home/x/xieluyu/log/" + keyValues._1)
       for (alignment <- alignmentGroup) {
@@ -128,72 +58,94 @@ object Dec {
       }
       logFile.close()
     }
-    readFile1.close()
-    readFile2.close()
+//    val t3 = System.currentTimeMillis()
+//    println("alignment:",t2-t1)
+//    println("report:",t3-t2)
+    fileHandles.foreach(_.close())
     report
   }
-  def judgeColBasesM(KVs: (Long, Iterable[Long])): TraversableOnce[String] = {
+  def judgeColBases(KVs: (Long, Iterable[Long])): TraversableOnce[(Int,Long,Int,Char,Int)] = {
     val table = Array('A', 'C', 'G', 'T', 'N', '-')
-    val values = (KVs._1 :: KVs._2.toList).map(x => (table((x % 5 + 5).toInt % 5), (x - (if (x >= 0) 0 else 4)) / 5))
-    val ACGT = collection.mutable.Map[Char, Long]('A' -> 0, 'C' -> 0, 'G' -> 0, 'T' -> 0)
-    for (value <- values if value._1 != 'N') ACGT(value._1) += 1
-    val (ref, refcnt) = ACGT.maxBy(_._2)
-    if (refcnt <= Settings.CUTTHRESHOLD) return List()
-    for (value <- values if value._1 == 'N' || ACGT(value._1) <= Settings.CUTTHRESHOLD)
-      yield value._2 + "\t" + ref
-  }
-  def judgeColBases(KVs: (Long, Iterable[Long])): TraversableOnce[String] = {
-    val table = Array('A', 'C', 'G', 'T', 'N', '-')
-    val values = (KVs._1 :: KVs._2.toList).filter(x => (Math.abs(x)/12000000000000L) == 0).filter(x => ((Math.abs(x)/2) % 6) < 5).map(x =>
-      if (x>=0) (table(((x/2) % 6).toInt), x/12 % 1000000000000L*2+(if (x%2==1) 1 else 0))
-      else (Util.complement(table(((-x/2) % 6).toInt)), -(-x/12 % 1000000000000L*2+(if (x%2== -1) 1 else 0)))
-    )
-    val ACGT = collection.mutable.Map[Char, Long]('A' -> 0, 'C' -> 0, 'G' -> 0, 'T' -> 0)
-    for (value <- values if value._1 != 'N') ACGT(value._1) += 1
+    val values = (KVs._1 :: KVs._2.toList).map(x=>{
+      val complemented = if (x>0) false else true
+      val abs = Math.abs(x)
+      val gap = abs/(12000000000000L*64)
+      val quality = abs/12000000000000L%64
+      val pos = abs/12%1000000000000L
+      val base = if (complemented) Util.complement(table((abs/2%6).toInt)) else table((abs/2%6).toInt)
+      val fileno = abs%2
+      (fileno,pos,gap,base,quality,complemented)
+    }).filter(x => x._3==0 && x._4!='-')
+    val ACGT = collection.mutable.Map[Char, Long]('A' -> 0, 'C' -> 0, 'G' -> 0, 'T' -> 0, '-' -> 0)
+    for (value <- values if "ACGT-" contains value._4) ACGT(value._4) += value._5
     //    for (value <- values if value._1!='N') println(KVs._1.toString+value.toString)
     val (ref, refcnt) = ACGT.maxBy(_._2)
     if (refcnt <= Settings.CUTTHRESHOLD) return List()
-    for (value <- values if value._1 == 'N' || ACGT(value._1) <= Settings.CUTTHRESHOLD) yield
-      (Math.abs(value._2)/2)*(if (Math.abs(value._2)%2>0) -1 else 1) + "\t" + (if (value._2<0) Util.complement(ref) else ref)
+    for (value <- values if value._4 == 'N' || ACGT(value._4) <= Settings.CUTTHRESHOLD) yield
+      // value._2*(-2*value._1+1) + "\t" + (if (value._6) Util.complement(ref) else ref)
+      (value._1.toInt,value._2,value._3.toInt, if (value._6) Util.complement(ref) else ref, value._5.toInt)
   }
   def printGenomeColumns(data:Iterator[(Long,Iterable[Long])]): Unit ={
     val table = Array('A', 'C', 'G', 'T', 'N', '-')
     val logFile = new FileWriter("/home/x/xieluyu/log/" + Math.abs(data.hashCode))
-    for ((key,values) <- data){
-      val vs = (key :: values.toList).filter(x => (Math.abs(x)/12000000000000L) == 0).filter(x => ((Math.abs(x)/2) % 6) < 5).map(x =>
-        if (x>=0) (table(((x/2) % 6).toInt), x/12 % 1000000000000L, x%2)
-        else (Util.complement(table(((-x/2) % 6).toInt)), -(-x/12 % 1000000000000L),-x%2)
-      )
-      logFile.write(vs.mkString(" ")+"\n")
+    for ((k,v) <- data){
+      val values = (k :: v.toList).map(x=>{
+        val complemented = if (x>0) false else true
+        val abs = Math.abs(x)
+        val gap = abs/(12000000000000L*64)
+        val quality = abs/12000000000000L%64
+        val pos = abs/12%1000000000000L
+        val base = if (complemented) Util.complement(table((abs/2%6).toInt)) else table((abs/2%6).toInt)
+        val fileno = abs%2
+        (fileno,pos,gap,base,quality,complemented)
+      }).filter(x => x._3==0 && "ACGTN".contains(x._4))
+      logFile.write(values.mkString(" ")+"\n")
     }
     logFile.close()
   }
-  def runST(sc: SparkContext, ifile: String = "/home/x/xieluyu/reads/lineno_seq1_seq2.txt", odir: String = "/home/x/xieluyu/output") {
+  def readFastqFiles(sc: SparkContext) = {
+    val filelist = Settings.inputFilePath
+    val s = for (i <- filelist.indices) yield
+      sc.newAPIHadoopFile(filelist(i), classOf[FastqInputFormat], classOf[LongWritable], classOf[Text]).map(x=>(i,x._1.get,x._2.toString))
+    s.reduce((a,b)=>a++b)
+  }
+  def writeFastqFile(KVs:(Int,Iterable[(Int,Long,Int,Char,Int)])): Unit ={
+
+    val bis = new BufferedInputStream(new FileInputStream(new File(Settings.inputFilePath(KVs._1))))
+    val in = new BufferedReader(new InputStreamReader(bis), 10 * 1024 * 1024)
+    while (true){
+      val name = in.readLine()
+      var seq = in.readLine()
+      val name2 = in.readLine()
+      var qual = in.readLine()
+    }
+    val inputFile = Source.fromFile(Settings.inputFilePath(KVs._1))
+    val outputFile = new FileWriter(Settings.inputFilePath(KVs._1)+".corr")
+    for ( line <- inputFile.getLines())
+    for ( (_,offset,gap,base,quality) <- KVs._2.toArray.sortBy(_._2)){
+
+    }
+  }
+  def runST(sc: SparkContext, odir: String = "/home/x/xieluyu/output") {
     val javaRuntime = Runtime.getRuntime
     javaRuntime.exec("rm -r " + odir)
-    val readsFile = sc.textFile(ifile, 64)
-    val P1 = readsFile.flatMap(Dec.scanKmer)
+    val readsFile = readFastqFiles(sc)
+    val P1 = readsFile.flatMap(Dec.decomposeKmer)
     val P2 = P1.groupByKey(1021).filter(_._2.size > 1).flatMap(Dec.alignByAnchorST)
     val id_clique = ConnectedComponent.runByNodeList(sc, P2)
     val P3 = id_clique.map(kv => if (kv._2<0) (-kv._2,-kv._1) else (kv._2,kv._1)).groupByKey() //TODO
 //    P3.foreachPartition(printGenomeColumns)
     val P4 = P3.flatMap(judgeColBases)
     P4.saveAsTextFile("file://" + odir)
-  }
-  def run(sc: SparkContext, ifile: String = "/home/x/xieluyu/reads/lineno_seq1_seq2.txt", odir: String = "/home/x/xieluyu/output") {
-    val javaRuntime = Runtime.getRuntime
-    javaRuntime.exec("rm -r " + odir)
-    val readsFile = sc.textFile(ifile, 64)
-    val P1 = readsFile.flatMap(Dec.scanKmer)
-    val P2 = P1.groupByKey(1024).filter(_._2.size > 1).flatMap(Dec.alignByAnchor)
-    val id_clique = ConnectedComponent.runByNodeList(sc, P2)
-    val P3 = id_clique.map(kv => (kv._2, kv._1)).groupByKey()
-    val P4 = P3.flatMap(judgeColBasesM)
-    P4.saveAsTextFile("file://" + odir)
+//    P4.groupBy(_._1).foreach(writeFastqFile)
   }
   def main(args: Array[String]) {
     val conf = new SparkConf().setAppName("decos")
+      .registerKryoClasses(Array[Class[_]](
+        Class.forName("org.apache.hadoop.io.LongWritable"),
+        Class.forName("org.apache.hadoop.io.Text")))
     val sc = new SparkContext(conf)
+    sc.hadoopConfiguration.setInt("mapred.max.split.size",4*1024*1024)//mapreduce.input.fileinputformat.split.maxsize
     runST(sc)
   }
 }

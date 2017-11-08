@@ -30,9 +30,16 @@ import org.apache.hadoop.util.LineReader;
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.io.{LongWritable, Text}
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat
+import org.apache.spark.{SparkContext, SparkConf} // for shell
+val conf = new SparkConf().setAppName("decos").registerKryoClasses(
+	Array[Class[_]](Class.forName("org.apache.hadoop.io.LongWritable"),
+					Class.forName("org.apache.hadoop.io.Text")
+					))
 val dataset = sc.newAPIHadoopFile("/home/x/xieluyu/reads/Ecoli1.fq", classOf[FastqInputFormat], classOf[LongWritable], classOf[Text])
-val data = dataset.map(x=>x._2.toString)
+val data = dataset.map(x=>(x._1.get,x._2.toString))
 data.count()
+data.collect()
+
 
  * By: 
  * 		Luyu
@@ -74,7 +81,7 @@ class FastqRecordReader extends RecordReader<LongWritable, Text> {
 	private boolean isCompressedInput;
 	private Decompressor decompressor;
 	private byte[] recordDelimiterBytes;
-	private Vector<Text> preread = new Vector<Text>();
+	private Vector<String> preread = new Vector<String>();
 	private Vector<Integer> prereadlen = new Vector<Integer>();
 
 	public FastqRecordReader() {
@@ -148,28 +155,16 @@ class FastqRecordReader extends RecordReader<LongWritable, Text> {
 			len = in.readLine(line, this.maxLineLength, maxBytesToConsume);
 			maxBytesToConsume -= len;
 			if (len == 0) return 0;
-			preread.add(new Text(line));
+			preread.add(line.toString());
 			prereadlen.add(len);
-			if (preread.size() == 1) continue;
-			if (line.getLength() == 1) break; // if this is third line == "+"
+			if (preread.size() >=3 && line.charAt(0) == '+' && preread.get(preread.size()-3).charAt(0)=='@') break;
 		}
-		if (preread.size() > 3) {
-			System.out.println("[" + start + "," + end + "] buffer size > 3");
-			for (Text i : preread)
-				System.out.println("[" + start + "," + end + "]:" + i.toString());
-			for (len = 0; preread.size() > 3;) {
-				len += prereadlen.remove(0);
-				preread.remove(0);
-			}
-		} else {
-			System.out.println("[" + start + "," + end + "] buffer size: <= 3");
-			for (Text i : preread)
-				System.out.println("[" + start + "," + end + "]:" + i.toString());
-			len = in.readLine(line, this.maxLineLength, maxBytesToConsume);
-			for (int i = 0; i < prereadlen.size(); i++)
-				len += prereadlen.get(i);
-			preread.clear();
-			prereadlen.clear();
+//		System.out.println("[" + start + "," + end + "] buffer size :" + preread.size());
+//		for (Text i : preread)
+//			System.out.println("[" + start + "," + end + "]:" + i.toString());
+		for (len = 0; preread.size() > 3;) {
+			len += prereadlen.remove(0);
+			preread.remove(0);
 		}
 		return len;
 	}
@@ -179,14 +174,14 @@ class FastqRecordReader extends RecordReader<LongWritable, Text> {
 		String fastq = "";
 		int len = 0, fastqLen = 0;
 		for (int i = 0; i < 4; i++) {
-			if (preread.isEmpty())
-				len = in.readLine(line, this.maxLineLength, maxBytesToConsume);
-			else {
-				line = preread.remove(0);
+			if (preread.isEmpty()) {
+                len = in.readLine(line, this.maxLineLength, maxBytesToConsume);
+                fastq += line.toString() + "\n";
+            } else {
+				fastq += preread.remove(0) + "\n";
 				len = prereadlen.remove(0);
 			}
 			maxBytesToConsume -= len;
-			fastq += line.toString() + "\n";
 			fastqLen += len;
 		}
 		str.set(fastq);

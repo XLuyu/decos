@@ -10,7 +10,7 @@ class Edge(s: Int, e: Int, d: Node, t: (Int, Int)) {
 }
 
 class Node() {
-  var edge = Array[Edge](null, null, null, null, null)
+  var edge = Array[Edge](null, null, null, null, null, null)
   var suffix: Node = _
 }
 
@@ -20,7 +20,7 @@ class SuffixTree(init_template: String = null) {
   var root = new Node()
   var falsum = new Node()
   var toRoot = new Edge(-1, 0, root, null)
-  falsum.edge = Array[Edge](toRoot, toRoot, toRoot, toRoot, toRoot)
+  falsum.edge = Array[Edge](toRoot, toRoot, toRoot, toRoot, toRoot, toRoot)
   root.suffix = falsum
   if (init_template != null) append(init_template)
 
@@ -29,7 +29,8 @@ class SuffixTree(init_template: String = null) {
     case 'C' => 1
     case 'G' => 2
     case 'T' => 3
-    case _ => 4
+    case 'N' => 4
+    case _ => 5
   }
 
   private def test_and_split(s: Node, k: Int, p: Int, t: Char): (Boolean, Node) = {
@@ -104,26 +105,25 @@ class SuffixTree(init_template: String = null) {
           if (current.start + p - k < T.length && T(current.start + p - k) == pattern(p)) find = true
         }
         if (!find) {
-          if (s == root) k += 1
-          else {
-            if (!reported) {
-              if (k < p && current.tag != null)
-                ret = (current.tag._1, current.tag._2, pstart_idx, p) :: ret
-              reported = true
-            }
-            s = s.suffix
+          if (!reported) {
+            if (k < p && current.tag != null)
+              ret = (current.tag._1, current.tag._2, pstart_idx, p) :: ret
+            reported = true
+          }
+          if (s == root) k += 1 else s = s.suffix
+          if (k < p) current = s.edge(atoi(pattern(k)))
+          while (k < p && current.end - current.start <= p - k) {
+            s = current.dest
+            k += current.end - current.start
             if (k < p) current = s.edge(atoi(pattern(k)))
-            while (k < p && current.end - current.start <= p - k) {
-              s = current.dest
-              k += current.end - current.start
-              if (k < p) current = s.edge(atoi(pattern(k)))
-            }
           }
           pstart_idx += 1
         }
       }
-      if (k == p && s == root && s.edge(atoi(pattern(p))) == null)
+      if (k == p && s == root && s.edge(atoi(pattern(p))) == null){
         k += 1
+        pstart_idx += 1
+      }
       else {
         if (k == p) current = s.edge(atoi(pattern(p)))
         if (k <= p && current.end - current.start <= p - k + 1) {
@@ -168,14 +168,14 @@ object SuffixTree {
     var st = new SuffixTree()
     //    st.append("TCTGATGAGTCGAAAAATTATCTTGATAAAGCAGGAATTACTACTGCTTGTTTACGAATTAAATCGAAGTGGACTGCTGGCGGAAAATGAGAAAATTCGA")
     //    st.append("ATTAAATCGAAGTGGACTGCTGGCGGAAAATGAGAAAATTCGACCTATCCTTGCGCAGCTCGAGAAGCTCTTACTTTGCGACCTTTCGCCATCAACTAAC")
-    st.append("TCCGGCGCGTTTTACCGCATTAACCACCGCGCGGGGAGTAATCGTCGCGCCGGTGAACTGGTCGAAATCACCACCATCTTTCTTCACCGCCCAGTTCGCA")
+    st.append("GCCA")
     //    st.append("CCCACAAAGTCCAGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCAATCCAAACTTAGTTACTCGTCAGAAAATCGG")
     //    st.append("AAACTCAACAGGAGCAGGAAAGCGAGGGTATCCCACAAAGTCCAGCGTACCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCA")
 
     //    st.append("GTCGAAAAATTATCTTGATAAAGCAGGAATTACTACTGCTTGTTTACGAATTAAATCGAAGTGGACTGCTGGCGGAAAATGAGAAAATTCGACCTATCCT")
     //                                               CCATAAACGCAAGCCTCAACGCAGCGACGAGCACGAGAGCGGTCAGTAGCAATCCAAACTTTGTTACTCGTCAGAAAATCGAAATCATCTTCGGTTAAAT
-    println(st.matchPatternSuffix("CGTTTTACCGCATTAACCACGCGGGGAGTAATCGTCGCGCCGGTGAACTGGTCGAAATCACCACCATCTTTCTTCACCGCCCAGTGCGCATCATCTGCACCACTAATATTTTTACCCGCAAA").map(x => (x._2, x._3, x._4 - x._3)).sortBy(_._2))
-    for ((k, v) <- st.tidVote("CGTTTTACCGCATTAACCACGCGGGGAGTAATCGTCGCGCCGGTGAACTGGTCGAAATCACCACCATCTTTCTTCACCGCCCAGTGCGCATCATCTGCACCACTAATATTTTTACCCGCAAA"))
-      println(k, v)
+    println(st.matchPatternSuffix("GCCT").map(x => (x._2, x._3, x._4 - x._3)).sortBy(_._2))
+//    for ((k, v) <- st.tidVote("CCCCCCCCCCGCGCCCGCCCGCGGCGCCCCCCGGCCTCGTCCGGCCCCCCCCGGCCCCCGGCGCGGCCGGCCCGCCCCCCCCCCCCGCCCCCCCCGCCGTCACCCCCATCCCCGCCGTTATCCCCAGCGACAATCAAGGCACGAGAAAATC"))
+//      println(k, v)
   }
 }
