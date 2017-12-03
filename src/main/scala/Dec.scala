@@ -15,23 +15,30 @@ object Dec {
   val K = Settings.K
   val MATCH_RATE = Settings.MATCH_RATE
 
-  def decomposeKmer(read: (Int, Long,String)): TraversableOnce[(String, (Int,Long,Int,Boolean))] = {
+  def decomposeKmer(read: (Int, Long, String)): TraversableOnce[(String, (Int,Long,Int,Boolean,String))] = {
     // return: (kmer,(fileno,offset,kmerPos,Complement))
     val (fileno, offset, record) = read
-    val sequence = record.split("\n")(1)
+    val lines = record.split("\n")
+    val head = lines(0).length+1
+    val sequence = lines(1)
+    val quality = lines(3)
+    val compressedSeq = (for ( i <- sequence.indices) yield ((quality(i)-33)*5+sequence(i)%5).toChar).mkString
     for (t <- K to sequence.length() if !sequence.substring(t - K, t).contains('N')) yield
       if ("AC" contains sequence(t - (K + 1) / 2))
-        (sequence.substring(t - K, t),(fileno,offset,t - K,false))
+        (sequence.substring(t - K, t),(fileno,offset+head,t - K,false,compressedSeq))
       else
-        (Util.reverseComplement(sequence.substring(t - K, t)),(fileno,offset,sequence.length() - t,true))
+        (Util.reverseComplement(sequence.substring(t - K, t)),(fileno,offset+head,sequence.length() - t,true,compressedSeq))
   }
-  def alignByAnchorST(keyValues: (String, Iterable[(Int,Long,Int,Boolean)])): TraversableOnce[List[Long]] = {
-    val fileHandles = for ( filename <- Settings.inputFilePath) yield new RandomAccessFile(filename, "r")
+  def alignByAnchorST(keyValues: (String, Iterable[(Int,Long,Int,Boolean,String)])): TraversableOnce[List[Long]] = {
+//    val fileHandles = for ( filename <- Settings.inputFilePath) yield new RandomAccessFile(filename, "r")
+    val compressTable = Array('A','G','C','N','T')
     val alignmentGroup = ArrayBuffer[ConsensusAlignment]()
-    val Values = keyValues._2.toArray.sortBy(-_._3)
+    val Values = keyValues._2.toArray.sortBy(x=>(-x._3,x._2))
 //    val t1 = System.currentTimeMillis()
-    for ((fileno,offset,pos,compl) <- Values) {
-      val read = MappingRead(fileno, offset, pos, compl, fileHandles(fileno))
+    for ((fileno,offset,pos,compl,cseq) <- Values) {
+      val seq = cseq.map(x=>compressTable(x%5))
+      val qual = cseq.map(x=>(x/5+33).toChar)
+      val read = new MappingRead(fileno, offset, pos, seq, qual,compl)
       val readST = new SuffixTree(read.seq)
       var best = -1
       var bestAlign: (Int, Array[Int]) = null
@@ -61,7 +68,7 @@ object Dec {
 //    val t3 = System.currentTimeMillis()
 //    println("alignment:",t2-t1)
 //    println("report:",t3-t2)
-    fileHandles.foreach(_.close())
+//    fileHandles.foreach(_.close())
     report
   }
   def judgeColBases(KVs: (Long, Iterable[Long])): TraversableOnce[(Int,Long,Int,Char,Int)] = {
@@ -75,7 +82,7 @@ object Dec {
       val base = if (complemented) Util.complement(table((abs/2%6).toInt)) else table((abs/2%6).toInt)
       val fileno = abs%2
       (fileno,pos,gap,base,quality,complemented)
-    }).filter(x => x._3==0 && x._4!='-')
+    })// .filter(x => x._3==0 && x._4!='-')
     val ACGT = collection.mutable.Map[Char, Long]('A' -> 0, 'C' -> 0, 'G' -> 0, 'T' -> 0, '-' -> 0)
     for (value <- values if "ACGT-" contains value._4) ACGT(value._4) += value._5
     //    for (value <- values if value._1!='N') println(KVs._1.toString+value.toString)
@@ -130,10 +137,17 @@ object Dec {
     val javaRuntime = Runtime.getRuntime
     javaRuntime.exec("rm -r " + odir)
     val readsFile = readFastqFiles(sc)
-    val P1 = readsFile.flatMap(Dec.decomposeKmer)
-    val P2 = P1.groupByKey(1021).filter(_._2.size > 1).flatMap(Dec.alignByAnchorST)
+    val P1 = readsFile.flatMap(Dec.decomposeKmer).groupByKey(1021)
+//    P1.cache()
+//    val KmerCount = P1.map(_._2.size).countByValue().toArray.sorted
+//    val peak = for ( i <- 1 until KmerCount.size-1 if KmerCount(i-1)._2<=KmerCount(i)._2 && KmerCount(i)._2>=KmerCount(i+1)._2) yield KmerCount(i)
+//    val cov = peak.maxBy(_._2)._1*100
+//    println(cov)
+//    P1.unpersist()
+    val cov = 1000000000
+    val P2 = P1.filter(x=>(x._2.size > 1)&&(x._2.size<cov)).flatMap(Dec.alignByAnchorST)
     val id_clique = ConnectedComponent.runByNodeList(sc, P2)
-    val P3 = id_clique.map(kv => if (kv._2<0) (-kv._2,-kv._1) else (kv._2,kv._1)).groupByKey() //TODO
+    val P3 = id_clique.map(kv => if (kv._2<0) (-kv._2,-kv._1) else (kv._2,kv._1)).groupByKey()
 //    P3.foreachPartition(printGenomeColumns)
     val P4 = P3.flatMap(judgeColBases)
     P4.saveAsTextFile("file://" + odir)
@@ -145,6 +159,7 @@ object Dec {
         Class.forName("org.apache.hadoop.io.LongWritable"),
         Class.forName("org.apache.hadoop.io.Text")))
     val sc = new SparkContext(conf)
+    sc.setLogLevel("WARN")
     sc.hadoopConfiguration.setInt("mapred.max.split.size",4*1024*1024)//mapreduce.input.fileinputformat.split.maxsize
     runST(sc)
   }

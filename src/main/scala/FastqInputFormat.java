@@ -45,19 +45,6 @@ data.collect()
  * 		Luyu
  */
 
-/* fastq test
-def check(seq:String):Boolean = {
-val lines = seq.split("\n")
-var pass = true
-if (lines.size != 4) pass = false
-if (lines(0)(0)!='@' || lines(0).size>=100) pass = false
-if (lines(1).size!=100) pass = false
-if (lines(2)(0)!='+' || lines(2).size!=1) pass = false
-if (lines(3).size!=100) pass = false
-if (!pass) print(lines)
-pass
-}
-*/
 public class FastqInputFormat extends TextInputFormat {
 	public RecordReader<LongWritable, Text> createRecordReader(InputSplit split, TaskAttemptContext context) {
 		return new FastqRecordReader();
@@ -157,7 +144,8 @@ class FastqRecordReader extends RecordReader<LongWritable, Text> {
 			if (len == 0) return 0;
 			preread.add(line.toString());
 			prereadlen.add(len);
-			if (preread.size() >=3 && line.charAt(0) == '+' && preread.get(preread.size()-3).charAt(0)=='@') break;
+			if (preread.size() >3 && line.getLength()>0 && line.charAt(0) == '+' &&
+                    preread.get(preread.size()-3).length()>0 && preread.get(preread.size()-3).charAt(0)=='@') break;
 		}
 //		System.out.println("[" + start + "," + end + "] buffer size :" + preread.size());
 //		for (Text i : preread)
@@ -171,20 +159,20 @@ class FastqRecordReader extends RecordReader<LongWritable, Text> {
 
 	private int readFastq(Text str, int maxLineLength, int maxBytesToConsume) throws IOException {
 		Text line = new Text();
-		String fastq = "";
+		StringBuilder fastq = new StringBuilder();
 		int len = 0, fastqLen = 0;
 		for (int i = 0; i < 4; i++) {
 			if (preread.isEmpty()) {
                 len = in.readLine(line, this.maxLineLength, maxBytesToConsume);
-                fastq += line.toString() + "\n";
+                fastq.append(line.toString()).append('\n');
             } else {
-				fastq += preread.remove(0) + "\n";
+				fastq.append(preread.remove(0)).append('\n');
 				len = prereadlen.remove(0);
 			}
 			maxBytesToConsume -= len;
 			fastqLen += len;
 		}
-		str.set(fastq);
+		str.set(fastq.toString());
 		return fastqLen;
 	}
 

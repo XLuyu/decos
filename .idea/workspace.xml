@@ -6,17 +6,13 @@
     </artifacts-to-build>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="63b16588-cfd9-460a-a821-4d89d57626f4" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/src/main/scala/UnionFindSet.scala" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/.idea/ant.xml" afterPath="" />
+    <list default="true" id="63b16588-cfd9-460a-a821-4d89d57626f4" name="Default" comment="v0.7.1&#10;&#10;+ break pair-end to single read&#10;+ change criteria: quality score sum &lt; 60&#10;+ column separation by UnionFindSet&#10;+ Fix bugs in SuffixTre&#10;+ fastq file inputFormat&#10;&#10;8.7 min&#10;Error Statistics: 891608 + 167&#10;True  Positive  : 890636 + 96&#10;False Positive  : 592 (136 from indel read)">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/Demo.txt" afterPath="$PROJECT_DIR$/Demo.txt" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/ConsensusAlignment.scala" afterPath="$PROJECT_DIR$/src/main/scala/ConsensusAlignment.scala" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/Dec.scala" afterPath="$PROJECT_DIR$/src/main/scala/Dec.scala" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/FastqInputFormat.java" afterPath="$PROJECT_DIR$/src/main/scala/FastqInputFormat.java" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/Settings.scala" afterPath="$PROJECT_DIR$/src/main/scala/Settings.scala" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/SuffixTree.scala" afterPath="$PROJECT_DIR$/src/main/scala/SuffixTree.scala" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/Util.scala" afterPath="$PROJECT_DIR$/src/main/scala/Util.scala" />
     </list>
     <ignored path="$PROJECT_DIR$/out/" />
     <ignored path="$PROJECT_DIR$/target/" />
@@ -60,38 +56,23 @@
       <file leaf-file-name="Dec.scala" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/main/scala/Dec.scala">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1185">
-              <caret line="79" column="81" lean-forward="true" selection-start-line="79" selection-start-column="81" selection-end-line="79" selection-end-column="81" />
+            <state relative-caret-position="-1452">
+              <caret line="1" column="32" lean-forward="true" selection-start-line="1" selection-start-column="32" selection-end-line="1" selection-end-column="32" />
               <folding>
-                <element signature="e#0#16#0" expanded="true" />
-                <element signature="e#3859#4658#0" expanded="false" />
+                <element signature="e#4265#5064#0" expanded="false" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="Settings.scala" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/src/main/scala/Settings.scala">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="210">
-              <caret line="14" column="0" lean-forward="true" selection-start-line="14" selection-start-column="0" selection-end-line="14" selection-end-column="0" />
-              <folding />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="ConsensusAlignment.scala" pinned="false" current-in-tab="false">
+      <file leaf-file-name="ConsensusAlignment.scala" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/main/scala/ConsensusAlignment.scala">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="513">
-              <caret line="427" column="41" lean-forward="true" selection-start-line="427" selection-start-column="41" selection-end-line="427" selection-end-column="41" />
+            <state relative-caret-position="198">
+              <caret line="371" column="24" lean-forward="false" selection-start-line="371" selection-start-column="24" selection-end-line="371" selection-end-column="24" />
               <folding>
                 <element signature="e#0#43#0" expanded="true" />
-                <element signature="e#6726#12835#0" expanded="false" />
-                <element signature="e#6726#13588#0" expanded="false" />
-                <element signature="e#13594#13660#0" expanded="false" />
-                <element signature="e#13892#15855#0" expanded="false" />
-                <element signature="e#15859#16002#0" expanded="false" />
+                <element signature="e#9641#9784#0" expanded="false" />
               </folding>
             </state>
           </provider>
@@ -109,7 +90,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>TCCAGCGTACCATAAACGC</find>
       <find>AGCGTACCATAAACGCAAGCCTCAACGCAGCGACGA</find>
       <find>(a._1,a._1+a._3,a._2,a._2+a._3)</find>
       <find>AGAAAATCGGATGGCTGAA</find>
@@ -139,6 +119,7 @@
       <find>readChunkedFastq</find>
       <find>preread</find>
       <find>print</find>
+      <find>MAX_READ_LEN</find>
     </findStrings>
     <replaceStrings>
       <replace />
@@ -167,18 +148,18 @@
         <option value="$PROJECT_DIR$/src/main/scala/SeedAlignment.scala" />
         <option value="$PROJECT_DIR$/build.sbt" />
         <option value="$PROJECT_DIR$/src/main/scala/anchorAlignment.scala" />
-        <option value="$PROJECT_DIR$/Demo.txt" />
         <option value="$APPLICATION_CONFIG_DIR$/scratches/scratch.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/NeedlemanWunschAligner.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/Util.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/ConnectedComponent.scala" />
         <option value="$PROJECT_DIR$/.gitignore" />
-        <option value="$PROJECT_DIR$/src/main/scala/FastqInputFormat.java" />
         <option value="$PROJECT_DIR$/upload.xml" />
         <option value="$PROJECT_DIR$/src/main/scala/SuffixTree.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/ConsensusAlignment.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/Dec.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/FastqInputFormat.java" />
+        <option value="$PROJECT_DIR$/src/main/scala/ConnectedComponent.scala" />
+        <option value="$PROJECT_DIR$/Demo.txt" />
         <option value="$PROJECT_DIR$/src/main/scala/Settings.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/Dec.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/ConsensusAlignment.scala" />
       </list>
     </option>
   </component>
@@ -286,6 +267,7 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
+      <pane id="Scratches" />
       <pane id="ProjectPane">
         <subPane>
           <PATH>
@@ -334,37 +316,10 @@
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
-          <PATH>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="decos" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="decos" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="src" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="main" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="scala" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
-            </PATH_ELEMENT>
-            <PATH_ELEMENT>
-              <option name="myItemId" value="FastqInputFormat.java" />
-              <option name="myItemType" value="com.intellij.ide.projectView.impl.ClassesTreeStructureProvider$PsiClassOwnerTreeNode" />
-            </PATH_ELEMENT>
-          </PATH>
         </subPane>
       </pane>
-      <pane id="Scratches" />
-      <pane id="Scope" />
       <pane id="PackagesPane" />
+      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -401,7 +356,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Application.SuffixTree">
+  <component name="RunManager" selected="Application.ConsensusAlignment">
     <configuration default="false" name="SuffixTree" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea" />
       <option name="MAIN_CLASS_NAME" value="SuffixTree" />
@@ -852,8 +807,8 @@
     </list>
     <recent_temporary>
       <list size="4">
-        <item index="0" class="java.lang.String" itemvalue="Application.SuffixTree" />
-        <item index="1" class="java.lang.String" itemvalue="Application.ConsensusAlignment" />
+        <item index="0" class="java.lang.String" itemvalue="Application.ConsensusAlignment" />
+        <item index="1" class="java.lang.String" itemvalue="Application.SuffixTree" />
         <item index="2" class="java.lang.String" itemvalue="Application.NeedlemanWunschAligner" />
         <item index="3" class="java.lang.String" itemvalue="Application.SeedAlignment" />
       </list>
@@ -929,7 +884,13 @@
       <workItem from="1509073237841" duration="53000" />
       <workItem from="1509085145045" duration="110347000" />
       <workItem from="1509948393267" duration="11970000" />
-      <workItem from="1510036656261" duration="6768000" />
+      <workItem from="1510036656261" duration="28168000" />
+      <workItem from="1510245644149" duration="20960000" />
+      <workItem from="1510637930425" duration="12381000" />
+      <workItem from="1510721578789" duration="30532000" />
+      <workItem from="1511327212063" duration="1257000" />
+      <workItem from="1512047430063" duration="3449000" />
+      <workItem from="1512199984287" duration="12514000" />
     </task>
     <task id="LOCAL-00001" summary="v0.1.3&#10;+ minor refactor ( extract 2 classes)">
       <created>1499157193150</created>
@@ -1022,11 +983,18 @@
       <option name="project" value="LOCAL" />
       <updated>1509285142324</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="v0.7&#10;&#10;+ break pair-end to single read&#10;+ change criteria: quality score sum &lt; 60&#10;+ column separation by UnionFindSet&#10;+ Fix bugs in SuffixTre&#10;+ fastq file inputFormat&#10;&#10;8.7 min&#10;Error Statistics: 891608 + 167&#10;True  Positive  : 890636 + 96&#10;False Positive  : 592 (136 from indel read)">
+      <created>1510117903044</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1510117903044</updated>
+    </task>
+    <option name="localTasksCounter" value="15" />
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="693328000" />
+    <option name="totallyTimeSpent" value="795821000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -1039,6 +1007,7 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="-8" width="1696" height="1026" extended-state="6" />
+    <editor active="true" />
     <layout>
       <window_info id="Palette" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Nl-Palette" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
@@ -1054,17 +1023,17 @@
       <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.39865622" sideWeight="0.49755502" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32914287" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
       <window_info id="Messages" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32586786" sideWeight="0.5" order="11" side_tool="false" content_ui="tabs" />
-      <window_info id="SBT" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32941905" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
-      <window_info id="Palette&#9;" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
+      <window_info id="SBT" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.32941905" sideWeight="0.5" order="11" side_tool="false" content_ui="tabs" />
+      <window_info id="Palette&#9;" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Image Layers" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
       <window_info id="Java Enterprise" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
-      <window_info id="Capture Analysis" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
-      <window_info id="Version Control" active="true" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.3281075" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
+      <window_info id="Capture Analysis" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
+      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.3281075" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
       <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.3281075" sideWeight="0.49511003" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.3281075" sideWeight="0.5" order="10" side_tool="false" content_ui="tabs" />
-      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.15953545" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
-      <window_info id="Bean Validation" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="11" side_tool="false" content_ui="tabs" />
-      <window_info id="Theme Preview" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="10" side_tool="false" content_ui="tabs" />
+      <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.19449541" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
+      <window_info id="Bean Validation" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="10" side_tool="false" content_ui="tabs" />
+      <window_info id="Theme Preview" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="6" side_tool="true" content_ui="tabs" />
       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
@@ -1130,17 +1099,19 @@
     <MESSAGE value="v0.5.2" />
     <MESSAGE value="v0.5.3 (experimental)&#10;&#10;+ pileup by plus and minus strand, instead of individual" />
     <MESSAGE value="v0.6b &#10;&#10;+ break pair-end to single read&#10;+ change criteria: quality score sum &lt; 60&#10;&#10;recall: 890333 / 891608&#10;fp: 731 (101 from indel)" />
-    <option name="LAST_COMMIT_MESSAGE" value="v0.6b &#10;&#10;+ break pair-end to single read&#10;+ change criteria: quality score sum &lt; 60&#10;&#10;recall: 890333 / 891608&#10;fp: 731 (101 from indel)" />
+    <MESSAGE value="v0.7&#10;&#10;+ break pair-end to single read&#10;+ change criteria: quality score sum &lt; 60&#10;+ column separation by UnionFindSet&#10;+ Fix bugs in SuffixTre&#10;+ fastq file inputFormat&#10;&#10;8.7 min&#10;Error Statistics: 891608 + 167&#10;True  Positive  : 890636 + 96&#10;False Positive  : 592 (136 from indel read)" />
+    <option name="LAST_COMMIT_MESSAGE" value="v0.7&#10;&#10;+ break pair-end to single read&#10;+ change criteria: quality score sum &lt; 60&#10;+ column separation by UnionFindSet&#10;+ Fix bugs in SuffixTre&#10;+ fastq file inputFormat&#10;&#10;8.7 min&#10;Error Statistics: 891608 + 167&#10;True  Positive  : 890636 + 96&#10;False Positive  : 592 (136 from indel read)" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
-      <option name="time" value="63" />
+      <option name="time" value="68" />
     </breakpoint-manager>
     <watches-manager>
       <configuration name="Application">
         <watch expression="pattern.substring(k,p)" language="Scala" />
         <watch expression="T.substring(current.start,current.end)" language="Scala" />
         <watch expression="pattern.substring(pstart_idx)" language="Scala" />
+        <watch expression="this" />
       </configuration>
     </watches-manager>
   </component>
@@ -1149,20 +1120,6 @@
     <option name="FILTER_TARGETS" value="false" />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/src/main/scala/Settings.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="75">
-          <caret line="5" column="27" lean-forward="false" selection-start-line="5" selection-start-column="27" selection-end-line="5" selection-end-column="27" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/SuffixTree.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="180">
-          <caret line="12" column="22" lean-forward="false" selection-start-line="12" selection-start-column="22" selection-end-line="12" selection-end-column="22" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/anchorAlignment.scala">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="165">
@@ -1175,8 +1132,7 @@
         <state relative-caret-position="1095">
           <caret line="73" column="5" lean-forward="true" selection-start-line="73" selection-start-column="5" selection-end-line="73" selection-end-column="5" />
           <folding>
-            <element signature="e#0#16#0" expanded="true" />
-            <element signature="e#3859#4658#0" expanded="false" />
+            <element signature="e#4265#5064#0" expanded="false" />
           </folding>
         </state>
       </provider>
@@ -1200,8 +1156,7 @@
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
-            <element signature="e#0#16#0" expanded="true" />
-            <element signature="e#3859#4658#0" expanded="false" />
+            <element signature="e#4265#5064#0" expanded="false" />
           </folding>
         </state>
       </provider>
@@ -1232,8 +1187,7 @@
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
-            <element signature="e#0#16#0" expanded="true" />
-            <element signature="e#3859#4658#0" expanded="false" />
+            <element signature="e#4265#5064#0" expanded="false" />
           </folding>
         </state>
       </provider>
@@ -1264,8 +1218,7 @@
         <state relative-caret-position="1800">
           <caret line="120" column="39" lean-forward="true" selection-start-line="120" selection-start-column="39" selection-end-line="120" selection-end-column="39" />
           <folding>
-            <element signature="e#0#16#0" expanded="true" />
-            <element signature="e#3859#4658#0" expanded="false" />
+            <element signature="e#4265#5064#0" expanded="false" />
           </folding>
         </state>
       </provider>
@@ -1296,8 +1249,7 @@
         <state relative-caret-position="3045">
           <caret line="203" column="10" lean-forward="true" selection-start-line="203" selection-start-column="10" selection-end-line="203" selection-end-column="10" />
           <folding>
-            <element signature="e#0#16#0" expanded="true" />
-            <element signature="e#3859#4658#0" expanded="false" />
+            <element signature="e#4265#5064#0" expanded="false" />
           </folding>
         </state>
       </provider>
@@ -1379,14 +1331,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/ConnectedComponent.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="210">
-          <caret line="15" column="19" lean-forward="false" selection-start-line="15" selection-start-column="19" selection-end-line="15" selection-end-column="19" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/.gitignore">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="120">
@@ -1422,54 +1366,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="jar://$USER_HOME$/.ivy2/cache/org.apache.spark/spark-core_2.11/srcs/spark-core_2.11-2.2.0-sources.jar!/org/apache/spark/SparkContext.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-539">
-          <caret line="955" column="47" lean-forward="false" selection-start-line="955" selection-start-column="28" selection-end-line="955" selection-end-column="47" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/NeedlemanWunschAligner.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="480">
-          <caret line="32" column="7" lean-forward="true" selection-start-line="32" selection-start-column="7" selection-end-line="32" selection-end-column="7" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="jar://$USER_HOME$/.ivy2/cache/org.scala-lang/scala-library/srcs/scala-library-2.11.7-sources.jar!/scala/collection/TraversableOnce.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="183">
-          <caret line="219" column="0" lean-forward="false" selection-start-line="219" selection-start-column="0" selection-end-line="219" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/Demo.txt">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="285">
-          <caret line="19" column="69" lean-forward="false" selection-start-line="19" selection-start-column="69" selection-end-line="19" selection-end-column="69" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/UnionFindSet.scala">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="35" lean-forward="true" selection-start-line="0" selection-start-column="35" selection-end-line="0" selection-end-column="35" />
-          <folding />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/Util.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="90">
-          <caret line="6" column="45" lean-forward="false" selection-start-line="6" selection-start-column="35" selection-end-line="6" selection-end-column="45" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/FastqInputFormat.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="93">
-          <caret line="185" column="9" lean-forward="true" selection-start-line="185" selection-start-column="9" selection-end-line="185" selection-end-column="9" />
         </state>
       </provider>
     </entry>
@@ -1480,44 +1380,103 @@
         </state>
       </provider>
     </entry>
+    <entry file="jar://$USER_HOME$/.ivy2/cache/org.apache.spark/spark-core_2.11/srcs/spark-core_2.11-2.2.0-sources.jar!/org/apache/spark/SparkContext.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="120">
+          <caret line="359" column="79" lean-forward="false" selection-start-line="359" selection-start-column="75" selection-end-line="359" selection-end-column="79" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/Util.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="210">
+          <caret line="14" column="0" lean-forward="true" selection-start-line="14" selection-start-column="0" selection-end-line="14" selection-end-column="0" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="jar://$USER_HOME$/.ivy2/cache/org.apache.hadoop/hadoop-common/srcs/hadoop-common-2.6.5-sources.jar!/org/apache/hadoop/util/LineReader.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="289">
+          <caret line="168" column="13" lean-forward="false" selection-start-line="168" selection-start-column="13" selection-end-line="168" selection-end-column="13" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="jar://D:/Java/jdk1.8.0_111/src.zip!/java/lang/StringBuilder.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="289">
+          <caret line="134" column="25" lean-forward="false" selection-start-line="134" selection-start-column="25" selection-end-line="134" selection-end-column="25" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/FastqInputFormat.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1005">
+          <caret line="167" column="20" lean-forward="true" selection-start-line="167" selection-start-column="20" selection-end-line="167" selection-end-column="20" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="jar://$USER_HOME$/.ivy2/cache/org.scala-lang/scala-library/srcs/scala-library-2.11.7-sources.jar!/scala/collection/TraversableOnce.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="289">
+          <caret line="249" column="6" lean-forward="false" selection-start-line="249" selection-start-column="6" selection-end-line="249" selection-end-column="6" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/SuffixTree.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="357">
-          <caret line="178" column="13" lean-forward="false" selection-start-line="178" selection-start-column="8" selection-end-line="178" selection-end-column="13" />
+        <state relative-caret-position="170">
+          <caret line="16" column="6" lean-forward="false" selection-start-line="16" selection-start-column="6" selection-end-line="16" selection-end-column="6" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/Demo.txt">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="120">
+          <caret line="8" column="35" lean-forward="false" selection-start-line="8" selection-start-column="35" selection-end-line="8" selection-end-column="35" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/NeedlemanWunschAligner.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="300">
+          <caret line="20" column="33" lean-forward="true" selection-start-line="20" selection-start-column="33" selection-end-line="20" selection-end-column="33" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/ConnectedComponent.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="423">
+          <caret line="31" column="48" lean-forward="true" selection-start-line="31" selection-start-column="48" selection-end-line="31" selection-end-column="48" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/Settings.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="225">
+          <caret line="15" column="97" lean-forward="true" selection-start-line="15" selection-start-column="97" selection-end-line="15" selection-end-column="97" />
+          <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/Dec.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1185">
-          <caret line="79" column="81" lean-forward="true" selection-start-line="79" selection-start-column="81" selection-end-line="79" selection-end-column="81" />
+        <state relative-caret-position="-1452">
+          <caret line="1" column="32" lean-forward="true" selection-start-line="1" selection-start-column="32" selection-end-line="1" selection-end-column="32" />
           <folding>
-            <element signature="e#0#16#0" expanded="true" />
-            <element signature="e#3859#4658#0" expanded="false" />
+            <element signature="e#4265#5064#0" expanded="false" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/ConsensusAlignment.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="513">
-          <caret line="427" column="41" lean-forward="true" selection-start-line="427" selection-start-column="41" selection-end-line="427" selection-end-column="41" />
+        <state relative-caret-position="198">
+          <caret line="371" column="24" lean-forward="false" selection-start-line="371" selection-start-column="24" selection-end-line="371" selection-end-column="24" />
           <folding>
             <element signature="e#0#43#0" expanded="true" />
-            <element signature="e#6726#12835#0" expanded="false" />
-            <element signature="e#6726#13588#0" expanded="false" />
-            <element signature="e#13594#13660#0" expanded="false" />
-            <element signature="e#13892#15855#0" expanded="false" />
-            <element signature="e#15859#16002#0" expanded="false" />
+            <element signature="e#9641#9784#0" expanded="false" />
           </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/Settings.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="210">
-          <caret line="14" column="0" lean-forward="true" selection-start-line="14" selection-start-column="0" selection-end-line="14" selection-end-column="0" />
-          <folding />
         </state>
       </provider>
     </entry>
