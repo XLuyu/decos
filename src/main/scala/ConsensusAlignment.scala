@@ -72,7 +72,7 @@ object ConsensusAlignment {
   val K = Settings.K
   val NWaligner = new NeedlemanWunschAligner(Settings.MAX_READ_LEN * 2, Settings.MAX_INDEL)
 
-  def alignOneEnd(groupSeq: String, readSeq: String, readST: SuffixTree): (Int, Int, Array[Int]) = {
+  def alignOneEnd(groupSeq: String, read: MappingRead, readST: SuffixTree): (Int, Int, Array[Int]) = {
     // return mapping array like: -2 -2 0 1 2 -1 3 4 6 -3 -3 -3
     def sharp(a: (Int, Int, Int), b: (Int, Int, Int)): (Int, Int, Int) = { // remove overlap part from a
       val (a1, a2, a3, a4) = (a._1, a._1 + a._3, a._2, a._2 + a._3)
@@ -86,7 +86,8 @@ object ConsensusAlignment {
       }
       null
     }
-
+    val readSeq = read.seq
+    val readQual = read.qual
     def compactLength(a: (Int, Int, Int)): Int = {
       var i = a._2
       var j = a._2 + a._3 - 1
@@ -189,6 +190,7 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
   this += read
   read.column = consensus.columnID.toArray
   val ufs = new UnionFindSet[Int]()
+  var father:Array[Int] = _
 
   def updateConsensus(consensus: ConsensusSequence, mapping: Array[Int], seq: String, readColumn: Array[Int]) {
     var inserted = 0
@@ -248,54 +250,73 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
 
   def align(read: MappingRead, readST: SuffixTree): (Int, Array[Int]) = {
     val consensusSeq = consensus.sequence()
-    val (count, span, mapping) = ConsensusAlignment.alignOneEnd(consensusSeq, read.seq, readST)
+    val (count, span, mapping) = ConsensusAlignment.alignOneEnd(consensusSeq, read, readST)
     if (mapping == null || count < span * Settings.MATCH_RATE) return null
     //shifting indel alignment to right-most place(or left-most for complemented read)
-//    var last = -1
-//    if (!read.complemented){
-//      for ( i <- mapping.indices) {
-//        if (mapping(i) == -1) {
-//          var j = i
-//          while (j+1 < consensusSeq.length && consensusSeq(j + 1) == consensusSeq(i) && mapping(j + 1) == -1) j += 1
-//          if (j+1 < consensusSeq.length && consensusSeq(j + 1) == consensusSeq(i) && mapping(j + 1) != -1) {
-//            mapping(i) = mapping(j+1)
-//            mapping(j+1) = -1
-//          }
-//        }
-//        if (mapping(i) >= 0) {
-//          if (last != -1 && mapping(i) > last + 1)
-//            while (mapping(i)-1 > last && read.seq(mapping(i)-1) == read.seq(mapping(i))) mapping(i) -= 1
-//          last = mapping(i)
-//        }
-//      }
-//    } else { // complemented
-//      for ( i <- mapping.length-1 to 0 by -1) {
-//        if (mapping(i) == -1) {
-//          var j = i
-//          while (j>0 && consensusSeq(j-1)==consensusSeq(i) && mapping(j-1) == -1) j -= 1
-//          if (j>0 && consensusSeq(j-1)==consensusSeq(i) && mapping(j-1) != -1) {
-//            mapping(i) = mapping(j-1)
-//            mapping(j-1) = -1
-//          }
-//        }
-//        if (mapping(i) >= 0) {
-//          if (last != -1 && mapping(i) < last - 1)
-//            while (mapping(i)+1 < last && read.seq(mapping(i)+1) == read.seq(mapping(i))) mapping(i) += 1
-//          last = mapping(i)
-//        }
-//      }
-//    }
+    var (i,last) = (0, -1)
+    var leftBound = mapping.indexWhere(_ >= 0)
+    var rightBound = mapping.lastIndexWhere(_ >= 0)
+    while ( i < mapping.length) {
+      if (mapping(i) == -1) {
+        val left = (i-1 to leftBound by -1).find(consensusSeq(_)!=consensusSeq(i)).getOrElse(leftBound-1)+1
+        val right = (i+1 to rightBound).find(consensusSeq(_)!=consensusSeq(i)).getOrElse(rightBound+1)-1
+        val (start,end,step) = if (consensusSeq(i)=='A' || consensusSeq(i)=='C') (left,right,1) else (right,left,-1)
+        var nextEmptyPos = start
+        for ( j <- start to end by step if mapping(j) != -1){
+          mapping(nextEmptyPos) = mapping(j)
+          nextEmptyPos += step
+        }
+        for ( j <- nextEmptyPos to end by step) mapping(j) = -1
+        i = right
+      }
+      i += 1
+    }
+    val readMapping = Array.fill[Int](read.seq.length)(-1)
+    for ( i <- mapping.indices if mapping(i)>=0) readMapping(mapping(i)) = i
+    leftBound = 0
+    while ( readMapping(leftBound) == -1) {readMapping(leftBound) = -2; leftBound += 1}
+    rightBound = readMapping.length-1
+    while ( readMapping(rightBound) == -1) {readMapping(rightBound) = -3; rightBound -= 1}
+    i = 0
+    while ( i < readMapping.length){
+      if (readMapping(i) == -1) {
+        val left = (i-1 to leftBound by -1).find(read.seq(_)!=read.seq(i)).getOrElse(leftBound-1)+1
+        val right = (i+1 to rightBound).find(read.seq(_)!=read.seq(i)).getOrElse(rightBound+1)-1
+        val (start,end,step) = if (read.seq(i)=='A' || read.seq(i)=='C') (left,right,1) else (right,left,-1)
+        var nextEmptyPos = start
+        for ( j <- start to end by step if readMapping(j) != -1){
+          mapping(readMapping(j)) = nextEmptyPos
+          readMapping(nextEmptyPos) = readMapping(j)
+          nextEmptyPos += step
+        }
+        i = right
+      }
+      i += 1
+    }
     (2 * count - span, mapping)
   }
 
   def reportAllEdgesTuple(kmer: String, report: ArrayBuffer[List[Long]]): Unit = {
     def baseEncode(fileno: Int, position: Long, gapCount: Int, baseCode: Int, quality: Int): Long = {
       // tried bitwise operation, but it gathers hashCode of records and skew the partition
-      var id = (gapCount * 64 + quality) * 1000000000000L + position
+      val id = (gapCount * 64 + quality) * 1000000000000L + position
       (id * 6 + baseCode) * 2 + fileno
     }
-
+    class FingerPrint(s:StringBuilder, q:ArrayBuffer[Int]){
+      var seq = s.clone()
+      var qual = q.clone()
+      def dissimilarity(other:FingerPrint) = (for (i <- s.indices if seq(i)!=' ' && other.seq(i)!=' ' && seq(i)!=other.seq(i)) yield Math.min(qual(i),other.qual(i))).sum
+      def similarity(other:FingerPrint) = (for (i <- s.indices if seq(i)!=' ' && seq(i)==other.seq(i)) yield Math.min(qual(i),other.qual(i))).sum
+      def simAndDissim(other:FingerPrint) = (similarity(other),dissimilarity(other))
+      def += (other:FingerPrint): Unit ={
+        for ( i <- s.indices ) {
+          if (seq(i)==' ') seq(i) = other.seq(i)
+          qual(i) += other.qual(i)
+        }
+      }
+    }
 //    val t1 = System.currentTimeMillis()
+    //compute pair-wise k-mer intersection
     val KmerSet = new Array[mutable.Set[Int]](this.size)
     val isAnchoredByMinKmer = Array.ofDim[Boolean](this.size, this.size)
     val thishash = kmer.hashCode
@@ -310,6 +331,7 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
         isAnchoredByMinKmer(i)(j) = (KmerSet(i) intersect KmerSet(j)).isEmpty
     }
 //    val t2 = System.currentTimeMillis()
+    // compute column linked list
     val table = mutable.Map[Char, Int]('A' -> 0, 'C' -> 1, 'G' -> 2, 'T' -> 3, 'N' -> 4, '-' -> 5)
     val columns = Array.fill[ArrayBuffer[(Int, Long)]](consensus.columnID.size)(ArrayBuffer[(Int, Long)]())
     val columnCount = Array.fill[mutable.Map[Char, Long]](consensus.columnID.size)(mutable.Map[Char, Long]('A' -> 0, 'C' -> 0, 'G' -> 0, 'T' -> 0, 'N' -> 0, '-' -> 0))
@@ -345,21 +367,59 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
     }
 //    val t3 = System.currentTimeMillis()
     val rtable = Array('A', 'C', 'G', 'T', 'N', '-')
+    val fingerprint = Array.fill[StringBuilder](this.size)(new StringBuilder())
+    val fpQuality = Array.fill[ArrayBuffer[Int]](this.size)(new ArrayBuffer[Int]())
     for (i <- columns.indices if columnCount(i).count(_._2>Settings.CUTTHRESHOLD)>1) {
-      val prev = mutable.Map[Char,Int]()
+      var last = 0
       for ((idx,baseCode) <- columns(i)) {
         var base = rtable((baseCode/2%6).toInt)
         if (this (idx).complemented) base = Util.complement(base)
-        if (columnCount(i)(base)>Settings.CUTTHRESHOLD){
-          if (!prev.contains(base)) prev(base) = idx
-          else ufs.union(idx,prev(base))
+        fingerprint(idx).+=(if (columnCount(i)(base)>Settings.CUTTHRESHOLD) base else ' ')
+        fpQuality(idx).+=((baseCode/12000000000000L%64).toInt)
+        while (last!=idx) {fingerprint(last) += ' '; fpQuality(last) += 40 ; last += 1}
+        last += 1
+      }
+      while (last<this.size) {fingerprint(last) += ' '; fpQuality(last) += 40 ; last += 1}
+    }
+    val fplen = fingerprint.head.length
+    father = new Array[Int](this.size)
+    if (fplen==0){
+      for ( i <- father.indices) father(i) = 0
+    } else {
+      val fp2idx = mutable.Map[StringBuilder, Int]()
+      val fpGroup = ArrayBuffer[FingerPrint]()
+      for (i <- this.indices){
+        val fp = new FingerPrint(fingerprint(i),fpQuality(i))
+        if (fp2idx.contains(fp.seq))
+          fpGroup(fp2idx(fp.seq)) += fp
+        else{
+          fp2idx(fp.seq.clone()) = fpGroup.size
+          fpGroup.append(fp)
         }
       }
-    }
-    val defaultValue = if (ufs.isEmpty()) 0 else ufs.getAnyKey()
-    val father = new Array[Int](this.size)
-    for (idx <- this.indices){
-      father(idx) = if (!ufs.contains(idx)) defaultValue else ufs.find(idx)
+      val fpCluster = new Array[Int](fpGroup.size)
+      val solid = fpGroup.map(_.qual.min>Settings.CUTTHRESHOLD)
+      for ( i <- fpGroup.indices if solid(i)){
+        var best = (-1,-1)
+        for ( j <- 0 until i if solid(j) ) {
+          val (sim,dissim) = fpGroup(j).simAndDissim(fpGroup(i))
+          if (dissim==0 && (best._1 == -1 || best._2 < sim)) best = (j,sim)
+        }
+        if (best._1 == -1) fpCluster(i) = i else {
+          fpGroup(best._1) += fpGroup(i)
+          fpCluster(i) = best._1
+        }
+      }
+      val solidlist = solid.indices.filter(solid)
+      for ( i <- fpGroup.indices if !solid(i)){
+        fpCluster(i) = if (solidlist.isEmpty) i else {
+          val simlist = solidlist.filter(x=>fpGroup(i).dissimilarity(fpGroup(x))<=Settings.CUTTHRESHOLD)
+          if (simlist.isEmpty) i else simlist.maxBy(x=>fpGroup(i).similarity(fpGroup(x)))
+        }
+      }
+      for (idx <- this.indices){
+        father(idx) = fpCluster(fp2idx(fingerprint(idx)))
+      }
     }
 //    val t4 = System.currentTimeMillis()
     for (column <- columns) {
@@ -383,7 +443,7 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
     var pileup = f"${"Consensus"}%20s " + consensus.sequence(true) + "\n"
     for (idx <- this.indices) {
       val read = this(idx)
-      pileup += f"${ufs.find(idx)}%5s${read.id}%12s(${read.fileno}${if (read.complemented) "-" else "+"})"
+      pileup += f"${father(idx)}%5s${read.id}%12s(${read.fileno}${if (read.complemented) "-" else "+"})"
       var i = 0
       for (column <- consensus.columnID if i < read.column.length) {
         pileup += (if (column == read.column(i)) read.seq(i) else " ")

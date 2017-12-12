@@ -4,7 +4,7 @@
 
 object Settings {
   val OO = 2000000000
-  val printAlignment = true
+  val debugPrint = true
   val MAX_READ_LEN = 150
   val MAX_INDEL = 2
   val CUTTHRESHOLD = 60

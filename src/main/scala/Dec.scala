@@ -58,7 +58,7 @@ object Dec {
 //    val t2 = System.currentTimeMillis()
     val report = ArrayBuffer[List[Long]]()
     alignmentGroup.foreach(_.reportAllEdgesTuple(keyValues._1, report))
-    if (report.nonEmpty && false) {
+    if (report.nonEmpty && Settings.debugPrint) {
       val logFile = new FileWriter("/home/x/xieluyu/log/" + keyValues._1)
       for (alignment <- alignmentGroup) {
         logFile.write(alignment.printPileup())
@@ -105,7 +105,7 @@ object Dec {
         val base = if (complemented) Util.complement(table((abs/2%6).toInt)) else table((abs/2%6).toInt)
         val fileno = abs%2
         (fileno,pos,gap,base,quality,complemented)
-      }).filter(x => x._3==0 && "ACGTN".contains(x._4))
+      })//.filter(x => x._3==0 && "ACGTN".contains(x._4))
       logFile.write(values.mkString(" ")+"\n")
     }
     logFile.close()
@@ -136,9 +136,10 @@ object Dec {
   def runST(sc: SparkContext, odir: String = "/home/x/xieluyu/output") {
     val javaRuntime = Runtime.getRuntime
     javaRuntime.exec("rm -r " + odir)
-    val readsFile = readFastqFiles(sc)
+    val readsFile = Dec.readFastqFiles(sc)
     val P1 = readsFile.flatMap(Dec.decomposeKmer).groupByKey(1021)
 //    P1.cache()
+
 //    val KmerCount = P1.map(_._2.size).countByValue().toArray.sorted
 //    val peak = for ( i <- 1 until KmerCount.size-1 if KmerCount(i-1)._2<=KmerCount(i)._2 && KmerCount(i)._2>=KmerCount(i+1)._2) yield KmerCount(i)
 //    val cov = peak.maxBy(_._2)._1*100
@@ -148,7 +149,7 @@ object Dec {
     val P2 = P1.filter(x=>(x._2.size > 1)&&(x._2.size<cov)).flatMap(Dec.alignByAnchorST)
     val id_clique = ConnectedComponent.runByNodeList(sc, P2)
     val P3 = id_clique.map(kv => if (kv._2<0) (-kv._2,-kv._1) else (kv._2,kv._1)).groupByKey()
-//    P3.foreachPartition(printGenomeColumns)
+    if (Settings.debugPrint) P3.foreachPartition(printGenomeColumns)
     val P4 = P3.flatMap(judgeColBases)
     P4.saveAsTextFile("file://" + odir)
 //    P4.groupBy(_._1).foreach(writeFastqFile)
