@@ -37,7 +37,7 @@ object Dec {
 //    val t1 = System.currentTimeMillis()
     for ((fileno,offset,pos,compl,cseq) <- Values) {
       val seq = cseq.map(x=>compressTable(x%5))
-      val qual = cseq.map(x=>(x/5+33).toChar)
+      val qual = cseq.map(_/5)
       val read = new MappingRead(fileno, offset, pos, seq, qual,compl)
       val readST = new SuffixTree(read.seq)
       var best = -1
