@@ -32,11 +32,15 @@ object ConnectedComponent extends Serializable {
       if (e._2<0) (-e._2,-e._1) else (e._2,e._1)
     )
     var edges = nodePair
+    var oldEdges:RDD[(Long,Long)] = null
     do {
       accum.reset()
       edges = edges.flatMap(duplicateEdge).groupByKey().flatMap(largeStarReduce)
       edges = edges.groupByKey().flatMap(smallStarReduce)
+//      edges.cache()
       edges.count()
+      if (oldEdges!=null) oldEdges.unpersist()
+//      oldEdges = edges
     } while (accum.value!=0)
     edges
   }

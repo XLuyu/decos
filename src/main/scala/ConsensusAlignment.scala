@@ -1,8 +1,5 @@
 import scala.collection.mutable.ArrayBuffer
-import scala.collection.mutable.Set
-import scala.collection.mutable.Map
 import scala.io.Source
-import java.io.RandomAccessFile
 
 import scala.collection.mutable
 import org.apache.spark._
@@ -10,18 +7,8 @@ import org.apache.spark._
 /**
   * Created by workshop on 04-Jul-17.
   */
-object MappingRead {
-  def apply(fileno: Int, offset: Long, pos: Int, complement: Boolean, file: RandomAccessFile): MappingRead = {
-    file.seek(offset)
-    val head = file.readLine().length + 1
-    val seq = file.readLine()
-    file.readLine()
-    val qual = file.readLine()
-    new MappingRead(fileno, offset + head, pos, seq, qual, complement)
-  }
-}
 
-class MappingRead(fileNumber: Int, offset: Long, pos: Int, rawSeq: String, quality: String, complement: Boolean = false) {
+class MappingRead(fileNumber: Int, offset: Long, pos: Int, rawSeq: String, quality: IndexedSeq[Int], complement: Boolean = false) {
   val fileno = fileNumber
   val id = offset
   var complemented = complement
@@ -38,22 +25,20 @@ class ConsensusSequence(init: String) {
 
   def charAt(idx: Int): Char = vote(idx).maxBy(x => x._2 * 1000 - x._1)._1
 
-  def addCount(idx: Int, c: Char): Unit = {
-    vote(idx)(c) += 1
-  }
+  def addCount(idx: Int, c: Char) = vote(idx)(c) += 1
 
   def sequence(keepGap: Boolean = false): String = {
     val consensusWithGap = for (i <- vote.indices) yield charAt(i)
     if (keepGap) consensusWithGap.mkString else consensusWithGap.filter(_ != '-').mkString
   }
 
-  def insert(idx: Int, newChars: Array[Char]): Unit = {
+  def insert(idx: Int, newChars: String): Unit = {
     columnID.insertAll(idx, columnID.size until (columnID.size + newChars.length))
     val newColumn = for (c <- newChars) yield mutable.Map('A' -> 0, 'C' -> 0, 'G' -> 0, 'T' -> 0, 'N'-> 0 ,'-' -> 0) + (c -> 1)
     vote.insertAll(idx, newColumn)
   }
 
-  def checkGap(idx: Int, newChars: Array[Char]): Unit = {
+  def checkGap(idx: Int, newChars: String): Unit = {
     var gapCount = 0
     var i = idx
     while (i < vote.length && gapCount < newChars.length && vote(i).maxBy(_._2)._2 == vote(i)('-')) {
@@ -68,100 +53,7 @@ class ConsensusSequence(init: String) {
 }
 
 object ConsensusAlignment {
-
-  val K = Settings.K
   val NWaligner = new NeedlemanWunschAligner(Settings.MAX_READ_LEN * 2, Settings.MAX_INDEL)
-
-  def alignOneEnd(groupSeq: String, read: MappingRead, readST: SuffixTree): (Int, Int, Array[Int]) = {
-    // return mapping array like: -2 -2 0 1 2 -1 3 4 6 -3 -3 -3
-    def sharp(a: (Int, Int, Int), b: (Int, Int, Int)): (Int, Int, Int) = { // remove overlap part from a
-      val (a1, a2, a3, a4) = (a._1, a._1 + a._3, a._2, a._2 + a._3)
-      val (b1, b2, b3, b4) = (b._1, b._1 + b._3, b._2, b._2 + b._3)
-      if (Math.abs(a1 - b1 - a3 + b3) > Settings.MAX_INDEL) return null
-      if (a1 < b1 && a2 <= b2 && a3 < b3 && a4 <= b4)
-        return (a1, a3, a._3 - Math.max(Math.max(a2 - b1, a4 - b3), 0))
-      if (b1 <= a1 && b2 < a2 && b3 <= a3 && b4 < a4) {
-        val ovlp = Math.max(Math.max(b2 - a1, b4 - a3), 0)
-        return (a1 + ovlp, a3 + ovlp, a._3 - ovlp)
-      }
-      null
-    }
-    val readSeq = read.seq
-    val readQual = read.qual
-    def compactLength(a: (Int, Int, Int)): Int = {
-      var i = a._2
-      var j = a._2 + a._3 - 1
-      while (i < a._2 + a._3 - 1 && groupSeq(i) == groupSeq(i + 1)) i += 1
-      while (j > a._2 && groupSeq(j) == groupSeq(j - 1)) j -= 1
-      Math.max(j - i + 1, 1)
-    }
-
-    val mapping = Array.fill[Int](groupSeq.length)(-1)
-    val lengthThreshold = Math.log(readSeq.length) / Math.log(2)
-    //    println(readST.pairwiseLCS(groupSeq))
-    val LCS = readST.pairwiseLCS(groupSeq).filter(_._3 > K).filter(compactLength(_) > 2).sortBy(-_._3)
-    //
-    //        println(groupSeq)
-    //        println(LCS)
-    var matchSeg = List[(Int, Int, Int)]()
-    for (m <- LCS) {
-      var sharped = m
-      for (nm <- matchSeg)
-        if (sharped != null) sharped = sharp(sharped, nm)
-      if (sharped != null) matchSeg = sharped :: matchSeg
-    }
-    matchSeg = matchSeg.sortBy(_._2)
-    if (matchSeg.isEmpty) return (0, 0, null)
-    var matchCount = 0
-    var spanCount = 0
-    val unmatchedReadHead = Math.min(matchSeg.head._1, matchSeg.head._2 + 2)
-    val unmatchedGroupHead = Math.min(matchSeg.head._2, matchSeg.head._1 + 2)
-    var lastR = matchSeg.head._1
-    var lastG = matchSeg.head._2
-    val HeadMapping = NWaligner.align(groupSeq.substring(lastG - unmatchedGroupHead, lastG).reverse,
-      readSeq.substring(lastR - unmatchedReadHead, lastR).reverse, tailFlex = true)
-    for (i <- HeadMapping.indices)
-      mapping(lastG - 1 - i) = if (HeadMapping(i) == -1) -1 else lastR - 1 - HeadMapping(i)
-    for (i <- lastG - unmatchedGroupHead until lastG if mapping(i) != -1 && groupSeq(i) == readSeq(mapping(i))) matchCount += 1
-    spanCount += Math.min(unmatchedReadHead, unmatchedGroupHead)
-    for ((rs, gs, len) <- matchSeg) {
-      if (gs - lastG == rs - lastR) {
-        for (i <- 0 until (gs - lastG)) mapping(lastG + i) = lastR + i
-      } else {
-        val regionMapping = NWaligner.align(groupSeq.substring(lastG, gs), readSeq.substring(lastR, rs))
-        for (i <- regionMapping.indices)
-          mapping(lastG + i) = if (regionMapping(i) == -1) -1 else lastR + regionMapping(i)
-      }
-      for (i <- lastG until gs if mapping(i) != -1 && groupSeq(i) == readSeq(mapping(i))) matchCount += 1
-      matchCount += len
-      spanCount += Math.max(gs - lastG, rs - lastR) + len
-      for (i <- 0 until len) mapping(gs + i) = rs + i
-      lastG = gs + len
-      lastR = rs + len
-    }
-    val unmatchedReadTail = Math.min(readSeq.length - lastR, groupSeq.length - lastG + 2)
-    val unmatchedGroupTail = Math.min(groupSeq.length - lastG, readSeq.length - lastR + 2)
-    val tailMapping = NWaligner.align(groupSeq.substring(lastG, lastG + unmatchedGroupTail),
-      readSeq.substring(lastR, lastR + unmatchedReadTail), tailFlex = true)
-    for (i <- tailMapping.indices)
-      mapping(lastG + i) = if (tailMapping(i) == -1) -1 else lastR + tailMapping(i)
-    for (i <- lastG until lastG + unmatchedGroupTail if mapping(i) != -1 && groupSeq(i) == readSeq(mapping(i))) matchCount += 1
-    spanCount += Math.min(unmatchedReadTail, unmatchedGroupTail)
-    var i = 0
-    while (mapping(i) == -1) {
-      mapping(i) = -2
-      i += 1
-    }
-    i = mapping.length - 1
-    while (mapping(i) == -1) {
-      mapping(i) = -3
-      i -= 1
-    }
-    //    for (i <- mapping) printf("%d,",i)
-    //    println()
-    (matchCount, spanCount, mapping)
-  }
-
   def main(args: Array[String]): Unit = {
     val readArray = ArrayBuffer[MappingRead]()
     var n = 0
@@ -169,7 +61,7 @@ object ConsensusAlignment {
     var r: (Int, Array[Int]) = null
     for (line <- Source.fromFile("Demo.txt").getLines) {
       n += 1
-      readArray += new MappingRead(0, n, 1, line, line, true)
+      readArray += new MappingRead(0, n, 1, line, line.map(_/1), true)
       if (n == 1) {
         ca = new ConsensusAlignment(readArray(0))
       } else {
@@ -192,10 +84,98 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
   val ufs = new UnionFindSet[Int]()
   var father:Array[Int] = _
 
+  def alignOneEnd(groupSeq: String, read: MappingRead, readST: SuffixTree): (Int, Int, Array[Int]) = {
+    // return mapping array like: -2 -2 0 1 2 -1 3 4 6 -3 -3 -3
+    def sharp(a: (Int, Int, Int), b: (Int, Int, Int)): (Int, Int, Int) = { // remove overlap part from a
+      val (a1, a2, a3, a4) = (a._1, a._1 + a._3, a._2, a._2 + a._3)
+      val (b1, b2, b3, b4) = (b._1, b._1 + b._3, b._2, b._2 + b._3)
+      if (Math.abs(a1 - b1 - a3 + b3) > Settings.MAX_INDEL) return null
+      if (a1 < b1 && a2 <= b2 && a3 < b3 && a4 <= b4)
+        return (a1, a3, a._3 - Math.max(Math.max(a2 - b1, a4 - b3), 0))
+      if (b1 <= a1 && b2 < a2 && b3 <= a3 && b4 < a4) {
+        val ovlp = Math.max(Math.max(b2 - a1, b4 - a3), 0)
+        return (a1 + ovlp, a3 + ovlp, a._3 - ovlp)
+      }
+      null
+    }
+    val readSeq = read.seq
+    def compactLength(a: (Int, Int, Int)): Int = {
+      var i = a._2
+      var j = a._2 + a._3 - 1
+      while (i < a._2 + a._3 - 1 && groupSeq(i) == groupSeq(i + 1)) i += 1
+      while (j > a._2 && groupSeq(j) == groupSeq(j - 1)) j -= 1
+      Math.max(j - i + 1, 1)
+    }
+
+    val mapping = Array.fill[Int](groupSeq.length)(-1)
+    val lengthThreshold = Math.log(readSeq.length) / Math.log(2)
+    //    println(readST.pairwiseLCS(groupSeq))
+    val LCS = readST.pairwiseLCS(groupSeq).filter(_._3 > Settings.K).filter(compactLength(_) > 2).sortBy(-_._3)
+    //
+    //        println(groupSeq)
+    //        println(LCS)
+    var matchSeg = List[(Int, Int, Int)]()
+    for (m <- LCS) {
+      var sharped = m
+      for (nm <- matchSeg)
+        if (sharped != null) sharped = sharp(sharped, nm)
+      if (sharped != null) matchSeg = sharped :: matchSeg
+    }
+    matchSeg = matchSeg.sortBy(_._2)
+    if (matchSeg.isEmpty) return (0, 0, null)
+    var matchCount = 0
+    var spanCount = 0
+    val unmatchedReadHead = Math.min(matchSeg.head._1, matchSeg.head._2 + 2)
+    val unmatchedGroupHead = Math.min(matchSeg.head._2, matchSeg.head._1 + 2)
+    var lastR = matchSeg.head._1
+    var lastG = matchSeg.head._2
+    val HeadMapping = ConsensusAlignment.NWaligner.align(groupSeq.substring(lastG - unmatchedGroupHead, lastG).reverse,
+      readSeq.substring(lastR - unmatchedReadHead, lastR).reverse, tailFlex = true)
+    for (i <- HeadMapping.indices)
+      mapping(lastG - 1 - i) = if (HeadMapping(i) == -1) -1 else lastR - 1 - HeadMapping(i)
+    for (i <- lastG - unmatchedGroupHead until lastG if mapping(i) != -1 && groupSeq(i) == readSeq(mapping(i))) matchCount += 1
+    spanCount += Math.min(unmatchedReadHead, unmatchedGroupHead)
+    for ((rs, gs, len) <- matchSeg) {
+      if (gs - lastG == rs - lastR) {
+        for (i <- 0 until (gs - lastG)) mapping(lastG + i) = lastR + i
+      } else {
+        val regionMapping = ConsensusAlignment.NWaligner.align(groupSeq.substring(lastG, gs), readSeq.substring(lastR, rs))
+        for (i <- regionMapping.indices)
+          mapping(lastG + i) = if (regionMapping(i) == -1) -1 else lastR + regionMapping(i)
+      }
+      for (i <- lastG until gs if mapping(i) != -1 && groupSeq(i) == readSeq(mapping(i))) matchCount += 1
+      matchCount += len
+      spanCount += Math.max(gs - lastG, rs - lastR) + len
+      for (i <- 0 until len) mapping(gs + i) = rs + i
+      lastG = gs + len
+      lastR = rs + len
+    }
+    val unmatchedReadTail = Math.min(readSeq.length - lastR, groupSeq.length - lastG + 2)
+    val unmatchedGroupTail = Math.min(groupSeq.length - lastG, readSeq.length - lastR + 2)
+    val tailMapping = ConsensusAlignment.NWaligner.align(groupSeq.substring(lastG, lastG + unmatchedGroupTail),
+      readSeq.substring(lastR, lastR + unmatchedReadTail), tailFlex = true)
+    for (i <- tailMapping.indices)
+      mapping(lastG + i) = if (tailMapping(i) == -1) -1 else lastR + tailMapping(i)
+    for (i <- lastG until lastG + unmatchedGroupTail if mapping(i) != -1 && groupSeq(i) == readSeq(mapping(i))) matchCount += 1
+    spanCount += Math.min(unmatchedReadTail, unmatchedGroupTail)
+    var i = 0
+    while (mapping(i) == -1) {
+      mapping(i) = -2
+      i += 1
+    }
+    i = mapping.length - 1
+    while (mapping(i) == -1) {
+      mapping(i) = -3
+      i -= 1
+    }
+    //    for (i <- mapping) printf("%d,",i)
+    //    println()
+    (matchCount, spanCount, mapping)
+  }
   def updateConsensus(consensus: ConsensusSequence, mapping: Array[Int], seq: String, readColumn: Array[Int]) {
     var inserted = 0
     if (mapping(0) > 0) {
-      consensus.insert(0, seq.substring(0, mapping(0)).toCharArray)
+      consensus.insert(0, seq.substring(0, mapping(0)))
       for (i <- 0 until mapping(0)) readColumn(i) = consensus.columnID(i)
       inserted += mapping(0)
     }
@@ -203,12 +183,12 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
     for (i <- mapping.indices) {
       if (mapping(i) > -1) {
         if (last != -1 && last + 1 != mapping(i)) {
-          consensus.checkGap(inserted + i, seq.substring(last + 1, mapping(i)).toCharArray)
+          consensus.checkGap(inserted + i, seq.substring(last + 1, mapping(i)))
           for (j <- last + 1 until mapping(i)) readColumn(j) = consensus.columnID(inserted + i + j - last - 1)
           inserted += mapping(i) - last - 1
         }
         while (consensus.charAt(inserted + i) == '-') {
-          consensus.addCount(inserted + i, '-')
+          if (last != -1) consensus.addCount(inserted + i, '-')
           inserted += 1
         }
         consensus.addCount(inserted + i, seq(mapping(i)))
@@ -225,21 +205,8 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
       }
     }
     if (last + 1 != seq.length) {
-      consensus.insert(inserted + mapping.length, seq.substring(last + 1).toCharArray)
+      consensus.insert(inserted + mapping.length, seq.substring(last + 1))
       for (i <- last + 1 until seq.length) readColumn(i) = consensus.columnID(inserted + mapping.length + i - last - 1)
-      inserted += mapping(0)
-    }
-    if (readColumn.contains(-1)) {
-      println("Exception at Line 365!")
-      for (i <- this) println(i.seq)
-      println(consensus.sequence())
-      for (k <- consensus.columnID) print(k + ",")
-      println()
-      for (k <- mapping) print(k + ",")
-      println()
-      for (k <- readColumn) print(k + ",")
-      println()
-      println(seq)
     }
   }
 
@@ -250,13 +217,31 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
 
   def align(read: MappingRead, readST: SuffixTree): (Int, Array[Int]) = {
     val consensusSeq = consensus.sequence()
-    val (count, span, mapping) = ConsensusAlignment.alignOneEnd(consensusSeq, read, readST)
-    if (mapping == null || count < span * Settings.MATCH_RATE) return null
+    val (count, span, mapping) = alignOneEnd(consensusSeq, read, readST)
+    var last = -1
+    var tot = 0
+    var pm = 0
+    if (mapping != null){
+      for (i <- mapping.indices) {
+        if (mapping(i) > -1) {
+          if (last != -1 && last + 1 != mapping(i)) {
+            tot += read.qual.slice(last+1,mapping(i)).sum
+          }
+          if (consensusSeq(i)==read.seq(mapping(i))) pm += read.qual(mapping(i))
+          tot += read.qual(mapping(i))
+          last = mapping(i)
+        } else if (mapping(i) == -1) {
+          tot += (read.qual(last)+read.qual(last+1))/2
+        }
+      }
+    }
+    if (mapping == null || pm < tot * 0.90) return null
+//    if (mapping == null || count < span * Settings.MATCH_RATE) return null
     //shifting indel alignment to right-most place(or left-most for complemented read)
-    var (i,last) = (0, -1)
-    var leftBound = mapping.indexWhere(_ >= 0)
-    var rightBound = mapping.lastIndexWhere(_ >= 0)
-    while ( i < mapping.length) {
+    var i = 1
+    var leftBound = Math.max(mapping.indexWhere(_ >= 0),1)
+    var rightBound = Math.min(mapping.lastIndexWhere(_ >= 0),mapping.length-2)
+    while ( i < mapping.length-1) {
       if (mapping(i) == -1) {
         val left = (i-1 to leftBound by -1).find(consensusSeq(_)!=consensusSeq(i)).getOrElse(leftBound-1)+1
         val right = (i+1 to rightBound).find(consensusSeq(_)!=consensusSeq(i)).getOrElse(rightBound+1)-1
@@ -275,10 +260,12 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
     for ( i <- mapping.indices if mapping(i)>=0) readMapping(mapping(i)) = i
     leftBound = 0
     while ( readMapping(leftBound) == -1) {readMapping(leftBound) = -2; leftBound += 1}
+    if (leftBound==0) leftBound = 1
     rightBound = readMapping.length-1
     while ( readMapping(rightBound) == -1) {readMapping(rightBound) = -3; rightBound -= 1}
-    i = 0
-    while ( i < readMapping.length){
+    if (rightBound==readMapping.length-1) rightBound = readMapping.length-2
+    i = 1
+    while ( i < readMapping.length-1){
       if (readMapping(i) == -1) {
         val left = (i-1 to leftBound by -1).find(read.seq(_)!=read.seq(i)).getOrElse(leftBound-1)+1
         val right = (i+1 to rightBound).find(read.seq(_)!=read.seq(i)).getOrElse(rightBound+1)-1
@@ -297,10 +284,11 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
   }
 
   def reportAllEdgesTuple(kmer: String, report: ArrayBuffer[List[Long]]): Unit = {
-    def baseEncode(fileno: Int, position: Long, gapCount: Int, baseCode: Int, quality: Int): Long = {
+    def baseEncode(read:MappingRead, position: Long, gapCount: Int, baseCode: Int, quality: Int): Long = {
       // tried bitwise operation, but it gathers hashCode of records and skew the partition
+//      if (read.complemented)
       val id = (gapCount * 64 + quality) * 1000000000000L + position
-      (id * 6 + baseCode) * 2 + fileno
+      (id * 6 + baseCode) * 2 + read.fileno
     }
     class FingerPrint(s:StringBuilder, q:ArrayBuffer[Int]){
       var seq = s.clone()
@@ -323,8 +311,8 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
     for (i <- this.indices) {
       val seq = this (i).seq
       KmerSet(i) = mutable.Set[Int]()
-      for (j <- 0 to seq.length - ConsensusAlignment.K) {
-        val kmerhash = Util.minKmerByRC(seq.substring(j, j + ConsensusAlignment.K)).hashCode
+      for (j <- 0 to seq.length - Settings.K) {
+        val kmerhash = Util.minKmerByRC(seq.substring(j, j + Settings.K)).hashCode
         if (kmerhash < thishash) KmerSet(i) += kmerhash
       }
       for (j <- 0 until i)
@@ -338,31 +326,26 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
     for (idx <- this.indices) {
       val read = this (idx)
       var refidx = 0
-      var first = true
       for (i <- read.column.indices) {
-        var gapCount = 0
-        while (consensus.columnID(refidx + gapCount) != read.column(i)) {
-          gapCount += 1
-        }
-        if (!first) {
+        var gapCount = consensus.columnID.indexWhere(_ == read.column(i),refidx) - refidx
+        if (i>0) {
           for (g <- 1 to gapCount) {
             val baseCode = if (read.complemented)
-              baseEncode(read.fileno, read.id + read.seq.length - i - 1, gapCount + 1 - g, table('-'), (read.qual(i - 1) + read.qual(i)) / 2 - 33)
+              baseEncode(read, read.id + read.seq.length - i - 1, gapCount + 1 - g, table('-'), (read.qual(i - 1) + read.qual(i)) / 2)
             else
-              baseEncode(read.fileno, read.id + i - 1, g, table('-'), (read.qual(i - 1) + read.qual(i)) / 2 - 33)
+              baseEncode(read, read.id + i - 1, g, table('-'), (read.qual(i - 1) + read.qual(i)) / 2)
             columns(refidx + g - 1) += ((idx, baseCode))
-            columnCount(refidx + g - 1)('-') += (read.qual(i - 1) + read.qual(i)) / 2 - 33
+            columnCount(refidx + g - 1)('-') += (read.qual(i - 1) + read.qual(i)) / 2
           }
         }
         refidx += gapCount
         val baseCode = if (read.complemented)
-          baseEncode(read.fileno, read.id + read.seq.length - 1 - i, 0, table(Util.complement(read.seq(i))), read.qual(i) - 33)
+          baseEncode(read, read.id + read.seq.length - 1 - i, 0, table(Util.complement(read.seq(i))), read.qual(i))
         else
-          baseEncode(read.fileno, read.id + i, 0, table(read.seq(i)), read.qual(i) - 33)
+          baseEncode(read, read.id + i, 0, table(read.seq(i)), read.qual(i))
         columns(refidx) += ((idx, baseCode))
-        columnCount(refidx)(read.seq(i)) += read.qual(i) - 33
+        columnCount(refidx)(read.seq(i)) += read.qual(i)
         refidx += 1
-        first = false
       }
     }
 //    val t3 = System.currentTimeMillis()
@@ -424,7 +407,7 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
 //    val t4 = System.currentTimeMillis()
     for (column <- columns) {
       val node = mutable.Map[Int,List[Long]]()
-      var prev = mutable.Map[Int,List[Int]]()
+      val prev = mutable.Map[Int,List[Int]]()
       for ((idx,baseCode) <- column) {
         val s = father(idx)
         if (!node.contains(s)) { node(s) = List[Long](); prev(s) = List[Int]()}
