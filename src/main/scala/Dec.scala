@@ -143,7 +143,7 @@ object Dec {
     val javaRuntime = Runtime.getRuntime
     javaRuntime.exec("rm -r " + odir)
     val readsFile = Dec.readFastqFiles(sc)
-    val P1 = readsFile.flatMap(Dec.decomposeKmer).groupByKey(5021)
+    val P1 = readsFile.flatMap(Dec.decomposeKmer).groupByKey(readsFile.getNumPartitions*41)
 //        P1.cache()
         val KmerCount = P1.map(_._2.size).countByValue().toArray.sorted
         val peak = for ( i <- 1 until KmerCount.size-1 if KmerCount(i-1)._2<=KmerCount(i)._2 && KmerCount(i)._2>=KmerCount(i+1)._2) yield KmerCount(i)
