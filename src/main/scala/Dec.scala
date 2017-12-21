@@ -143,13 +143,13 @@ object Dec {
     val javaRuntime = Runtime.getRuntime
     javaRuntime.exec("rm -r " + odir)
     val readsFile = Dec.readFastqFiles(sc)
-    val P1 = readsFile.flatMap(Dec.decomposeKmer).groupByKey(readsFile.getNumPartitions*41)
+    val P1 = readsFile.flatMap(Dec.decomposeKmer).groupByKey(readsFile.getNumPartitions*37)
 //        P1.cache()
-        val KmerCount = P1.map(_._2.size).countByValue().toArray.sorted
-        val peak = for ( i <- 1 until KmerCount.size-1 if KmerCount(i-1)._2<=KmerCount(i)._2 && KmerCount(i)._2>=KmerCount(i+1)._2) yield KmerCount(i)
-        val cov = peak.maxBy(_._2)._1*100
-        println(cov)
-//    val cov = 1000000000
+//        val KmerCount = P1.map(_._2.size).countByValue().toArray.sorted
+//        val peak = for ( i <- 1 until KmerCount.size-1 if KmerCount(i-1)._2<=KmerCount(i)._2 && KmerCount(i)._2>=KmerCount(i+1)._2) yield KmerCount(i)
+//        val cov = peak.maxBy(_._2)._1*100
+//        println(cov)
+    val cov = 1000000000
     val P2 = P1.filter(x => (x._2.size > 1) && (x._2.size < cov)).flatMap(Dec.alignByAnchorST)
     val id_clique = ConnectedComponent.runByNodeList(sc, P2)
 //        P1.unpersist()
@@ -169,5 +169,6 @@ object Dec {
     sc.setLogLevel("WARN")
     sc.hadoopConfiguration.setInt("mapred.max.split.size", 4 * 1024 * 1024) //mapreduce.input.fileinputformat.split.maxsize
     runST(sc)
+    println("[ DECOS ] finished successfully!")
   }
 }
