@@ -1,5 +1,7 @@
 class NeedlemanWunschAligner(size: Int, offsetLimit: Int = Settings.OO, matchBonus: Int = 1, mismatchPenalty: Int = 1, gapPenalty: Int = 50) {
   val f = Array.ofDim[Int](size + 1, size + 1)
+  val r = Array.ofDim[(Int,Int)](size + 1, size + 1)
+  var tmp = 0
   // f(i,j) = min score after finish alignment of t[0..i-1] and s[0..j-1]
 
   /**
@@ -10,22 +12,27 @@ class NeedlemanWunschAligner(size: Int, offsetLimit: Int = Settings.OO, matchBon
     * @return a array of t.length to indicate what position in s each char of t align to
     */
   def align(t: String, s: String, matchBonus: Int = matchBonus, mismatchPenalty: Int = mismatchPenalty, gapPenalty: Int = gapPenalty,
-            offsetLimit: Int = offsetLimit, headFlex: Boolean = false, tailFlex: Boolean = false): Array[Int] = {
+            offsetLimit: Int = offsetLimit, tailFlex: Boolean = false): Array[Int] = {
     val mapping = Array.fill[Int](t.length)(-1)
     this.synchronized {
       // init f
-      for (i <- 0 to t.length) f(i)(0) = if (i > offsetLimit) Settings.OO else if (headFlex) 0 else gapPenalty * i
-      for (i <- 0 to s.length) f(0)(i) = if (i > offsetLimit) Settings.OO else if (headFlex) 0 else gapPenalty * i
+      for (i <- 0 to t.length) f(i)(0) = if (i > offsetLimit) Settings.OO else gapPenalty * i
+      for (i <- 0 to s.length) f(0)(i) = if (i > offsetLimit) Settings.OO else gapPenalty * i
       // recursion
       for (i <- 1 to t.length; j <- 1 to s.length) {
         if (Math.abs(i - j) > offsetLimit) f(i)(j) = Settings.OO else {
-          f(i)(j) = Math.min(
-            f(i - 1)(j) + (if (j == s.length && tailFlex) 0 else gapPenalty),
-            f(i)(j - 1) + (if (i == t.length && tailFlex) 0 else gapPenalty))
-          if (t(i - 1) != s(j - 1)) f(i)(j) = Math.min(f(i)(j), f(i - 1)(j - 1) + mismatchPenalty) else {
+          f(i)(j) = f(i - 1)(j) + (if (j == s.length && tailFlex) 0 else gapPenalty)
+          r(i)(j) = (i - 1, j)
+          tmp = f(i)(j - 1) + (if (i == t.length && tailFlex) 0 else gapPenalty)
+          if (tmp < f(i)(j)) { f(i)(j) = tmp; r(i)(j) = (i, j - 1) }
+          if (t(i - 1) != s(j - 1)) {
+            tmp = f(i - 1)(j - 1) + mismatchPenalty
+            if (tmp < f(i)(j)) { f(i)(j) = tmp; r(i)(j) = (i - 1, j - 1) }
+          } else {
             var k = 1
             while (k <= i && k <= j && t(i - k) == s(j - k)) {
-              f(i)(j) = Math.min(f(i)(j), f(i - k)(j - k) - k * k * matchBonus)
+              tmp = f(i - k)(j - k) - k * k * matchBonus
+              if (tmp < f(i)(j)) { f(i)(j) = tmp; r(i)(j) = (i - k, j - k) }
               k += 1
             }
           }
@@ -33,21 +40,12 @@ class NeedlemanWunschAligner(size: Int, offsetLimit: Int = Settings.OO, matchBon
       }
       var (i, j) = (t.length, s.length)
       while (i != 0 && j != 0) {
-        if (f(i)(j) == f(i - 1)(j) + (if (j == s.length && tailFlex) 0 else gapPenalty)) i -= 1
-        else if (f(i)(j) == f(i)(j - 1) + (if (i == t.length && tailFlex) 0 else gapPenalty)) j -= 1
-        else if (t(i - 1) != s(j - 1)) {
+        val next = r(i)(j)
+        if (next._1==i || next._2==j) { i = next._1; j = next._2}
+        else while (i != next._1 && j != next._2){
+          mapping(i - 1) = j - 1
           i -= 1
           j -= 1
-          mapping(i) = j
-        } else {
-          var k = 1
-          while (f(i)(j) != f(i - k)(j - k) - k * k * matchBonus) {
-            mapping(i - k) = j - k
-            k += 1
-          }
-          mapping(i - k) = j - k
-          i -= k
-          j -= k
         }
       }
     }
