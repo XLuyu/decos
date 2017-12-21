@@ -8,9 +8,9 @@
   <component name="ChangeListManager">
     <list default="true" id="63b16588-cfd9-460a-a821-4d89d57626f4" name="Default" comment="v0.8.0&#10;+ refact a few lines of code&#10;+ fix a underlying bug &quot;if (last != -1) consensus.addCount(inserted + i, '-')&quot;&#10;+ base counting clustering -&gt; Quality Score clustering&#10;    - in E.coli real dataset subset 10M reads&#10;    - Deep Gain 0.67914003 -&gt; 0.8412564&#10;    - Broadth Gain 0.0047826087 -&gt; 0.012608696&#10;+ fix sliding in last update, which make unmapped segment at head/tail">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/ConnectedComponent.scala" afterPath="$PROJECT_DIR$/src/main/scala/ConnectedComponent.scala" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/ConsensusAlignment.scala" afterPath="$PROJECT_DIR$/src/main/scala/ConsensusAlignment.scala" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/Dec.scala" afterPath="$PROJECT_DIR$/src/main/scala/Dec.scala" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/NeedlemanWunschAligner.scala" afterPath="$PROJECT_DIR$/src/main/scala/NeedlemanWunschAligner.scala" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/src/main/scala/Settings.scala" afterPath="$PROJECT_DIR$/src/main/scala/Settings.scala" />
     </list>
     <ignored path="$PROJECT_DIR$/out/" />
@@ -55,38 +55,38 @@
       <file leaf-file-name="Dec.scala" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/main/scala/Dec.scala">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1496">
-              <caret line="145" column="62" lean-forward="true" selection-start-line="145" selection-start-column="62" selection-end-line="145" selection-end-column="62" />
+            <state relative-caret-position="813">
+              <caret line="162" column="33" lean-forward="false" selection-start-line="162" selection-start-column="33" selection-end-line="162" selection-end-column="33" />
               <folding>
                 <element signature="e#0#16#0" expanded="true" />
-                <element signature="e#4389#5229#0" expanded="false" />
-                <element signature="e#5543#6226#0" expanded="false" />
+                <marker date="1513692485859" expanded="false" signature="4460:5229" ph="{...}" />
+                <marker date="1513692485859" expanded="false" signature="5621:6226" ph="{...}" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="ConsensusAlignment.scala" pinned="false" current-in-tab="true">
+      <file leaf-file-name="ConsensusAlignment.scala" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/src/main/scala/ConsensusAlignment.scala">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="252">
-              <caret line="344" column="38" lean-forward="true" selection-start-line="344" selection-start-column="38" selection-end-line="344" selection-end-column="38" />
+            <state relative-caret-position="45">
+              <caret line="122" column="20" lean-forward="true" selection-start-line="122" selection-start-column="20" selection-end-line="122" selection-end-column="20" />
               <folding>
                 <element signature="e#0#43#0" expanded="true" />
-                <element signature="e#2075#2800#0" expanded="false" />
-                <element signature="e#3060#7303#0" expanded="false" />
-                <element signature="e#7306#8865#0" expanded="false" />
-                <element signature="e#18483#19013#0" expanded="false" />
+                <element signature="e#2183#3006#1" expanded="false" />
+                <element signature="e#2279#3004#0" expanded="false" />
+                <element signature="e#7942#9881#0" expanded="false" />
+                <element signature="e#19393#19923#0" expanded="false" />
               </folding>
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="Settings.scala" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/src/main/scala/Settings.scala">
+      <file leaf-file-name="NeedlemanWunschAligner.scala" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/src/main/scala/NeedlemanWunschAligner.scala">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="285">
-              <caret line="19" column="1" lean-forward="true" selection-start-line="19" selection-start-column="1" selection-end-line="19" selection-end-column="1" />
+            <state relative-caret-position="90">
+              <caret line="6" column="0" lean-forward="true" selection-start-line="6" selection-start-column="0" selection-end-line="6" selection-end-column="0" />
               <folding />
             </state>
           </provider>
@@ -104,7 +104,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>addCount</find>
       <find>/temp/output/logTGGTCGTGCGGAAT</find>
       <find>/temp/output/l</find>
       <find>/temp/output/</find>
@@ -134,6 +133,7 @@
       <find>=i</find>
       <find>= i</find>
       <find>buffer</find>
+      <find>flex</find>
     </findStrings>
     <replaceStrings>
       <replace />
@@ -163,17 +163,17 @@
         <option value="$PROJECT_DIR$/build.sbt" />
         <option value="$PROJECT_DIR$/src/main/scala/anchorAlignment.scala" />
         <option value="$APPLICATION_CONFIG_DIR$/scratches/scratch.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/NeedlemanWunschAligner.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/Util.scala" />
         <option value="$PROJECT_DIR$/upload.xml" />
         <option value="$PROJECT_DIR$/src/main/scala/SuffixTree.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/FastqInputFormat.java" />
         <option value="$PROJECT_DIR$/.gitignore" />
         <option value="$PROJECT_DIR$/Demo.txt" />
-        <option value="$PROJECT_DIR$/src/main/scala/Settings.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/ConnectedComponent.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/Settings.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/Dec.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/ConsensusAlignment.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/NeedlemanWunschAligner.scala" />
       </list>
     </option>
   </component>
@@ -907,7 +907,7 @@
       <workItem from="1512199984287" duration="38274000" />
       <workItem from="1512394343581" duration="4015000" />
       <workItem from="1512534900410" duration="61907000" />
-      <workItem from="1513407898506" duration="15005000" />
+      <workItem from="1513407898506" duration="55994000" />
     </task>
     <task id="LOCAL-00001" summary="v0.1.3&#10;+ minor refactor ( extract 2 classes)">
       <created>1499157193150</created>
@@ -1014,11 +1014,18 @@
       <option name="project" value="LOCAL" />
       <updated>1512286864179</updated>
     </task>
-    <option name="localTasksCounter" value="16" />
+    <task id="LOCAL-00016" summary="v0.8.0&#10;+ refact a few lines of code&#10;+ fix a underlying bug &quot;if (last != -1) consensus.addCount(inserted + i, '-')&quot;&#10;+ base counting clustering -&gt; Quality Score clustering&#10;    - in E.coli real dataset subset 10M reads&#10;    - Deep Gain 0.67914003 -&gt; 0.8412564&#10;    - Broadth Gain 0.0047826087 -&gt; 0.012608696&#10;+ fix sliding in last update, which make unmapped segment at head/tail">
+      <created>1513577833012</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1513577833012</updated>
+    </task>
+    <option name="localTasksCounter" value="17" />
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="953179000" />
+    <option name="totallyTimeSpent" value="994168000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -1031,7 +1038,6 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="-8" width="1696" height="1026" extended-state="6" />
-    <editor active="true" />
     <layout>
       <window_info id="Palette" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Nl-Palette" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
@@ -1052,7 +1058,7 @@
       <window_info id="Image Layers" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="5" side_tool="false" content_ui="tabs" />
       <window_info id="Java Enterprise" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
       <window_info id="Capture Analysis" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="8" side_tool="false" content_ui="tabs" />
-      <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.32698768" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
+      <window_info id="Version Control" active="true" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.32698768" sideWeight="0.5" order="9" side_tool="false" content_ui="tabs" />
       <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.3281075" sideWeight="0.49511003" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.3281075" sideWeight="0.5" order="10" side_tool="false" content_ui="tabs" />
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.20183486" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
@@ -1125,7 +1131,8 @@
     <MESSAGE value="v0.6b &#10;&#10;+ break pair-end to single read&#10;+ change criteria: quality score sum &lt; 60&#10;&#10;recall: 890333 / 891608&#10;fp: 731 (101 from indel)" />
     <MESSAGE value="v0.7&#10;&#10;+ break pair-end to single read&#10;+ change criteria: quality score sum &lt; 60&#10;+ column separation by UnionFindSet&#10;+ Fix bugs in SuffixTre&#10;+ fastq file inputFormat&#10;&#10;8.7 min&#10;Error Statistics: 891608 + 167&#10;True  Positive  : 890636 + 96&#10;False Positive  : 592 (136 from indel read)" />
     <MESSAGE value="v0.7.2&#10;&#10;+ FastqInputFormat bug fix&#10;  * empty line has no line.charAt(0) == '+'&#10;  * drop first fastq record whatever it's chopped or complete to avoid duplicate&#10;  * String -&gt; StringBuilder&#10;+ dispatch read by network, as reload from filesystem also require network&#10;+ sort reads in group by (pos,id) to unify ordering&#10;+ set log level as &quot;warn&quot;&#10;+ reportAllEdgesTuple: align by min kmer with all previous reads -&gt; only last read&#10;&#10;6.2 min (20 nodes, not 10 nodes)&#10;Error Statistics: 891608 + 167&#10;True  Positive  : 890460 + 105&#10;False Positive  : 492 (128 from indel read)" />
-    <option name="LAST_COMMIT_MESSAGE" value="v0.7.2&#10;&#10;+ FastqInputFormat bug fix&#10;  * empty line has no line.charAt(0) == '+'&#10;  * drop first fastq record whatever it's chopped or complete to avoid duplicate&#10;  * String -&gt; StringBuilder&#10;+ dispatch read by network, as reload from filesystem also require network&#10;+ sort reads in group by (pos,id) to unify ordering&#10;+ set log level as &quot;warn&quot;&#10;+ reportAllEdgesTuple: align by min kmer with all previous reads -&gt; only last read&#10;&#10;6.2 min (20 nodes, not 10 nodes)&#10;Error Statistics: 891608 + 167&#10;True  Positive  : 890460 + 105&#10;False Positive  : 492 (128 from indel read)" />
+    <MESSAGE value="v0.8.0&#10;+ refact a few lines of code&#10;+ fix a underlying bug &quot;if (last != -1) consensus.addCount(inserted + i, '-')&quot;&#10;+ base counting clustering -&gt; Quality Score clustering&#10;    - in E.coli real dataset subset 10M reads&#10;    - Deep Gain 0.67914003 -&gt; 0.8412564&#10;    - Broadth Gain 0.0047826087 -&gt; 0.012608696&#10;+ fix sliding in last update, which make unmapped segment at head/tail" />
+    <option name="LAST_COMMIT_MESSAGE" value="v0.8.0&#10;+ refact a few lines of code&#10;+ fix a underlying bug &quot;if (last != -1) consensus.addCount(inserted + i, '-')&quot;&#10;+ base counting clustering -&gt; Quality Score clustering&#10;    - in E.coli real dataset subset 10M reads&#10;    - Deep Gain 0.67914003 -&gt; 0.8412564&#10;    - Broadth Gain 0.0047826087 -&gt; 0.012608696&#10;+ fix sliding in last update, which make unmapped segment at head/tail" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
@@ -1142,21 +1149,14 @@
     <option name="FILTER_TARGETS" value="false" />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/src/main/scala/anchorAlignment.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1680">
-          <caret line="112" column="5" lean-forward="false" selection-start-line="112" selection-start-column="5" selection-end-line="112" selection-end-column="5" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/Dec.scala">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="0">
           <caret line="0" column="0" lean-forward="false" selection-start-line="0" selection-start-column="0" selection-end-line="0" selection-end-column="0" />
           <folding>
             <element signature="e#0#16#0" expanded="true" />
-            <element signature="e#4389#5229#0" expanded="false" />
-            <element signature="e#5543#6226#0" expanded="false" />
+            <marker date="1513692485859" expanded="false" signature="4460:5229" ph="{...}" />
+            <marker date="1513692485859" expanded="false" signature="5621:6226" ph="{...}" />
           </folding>
         </state>
       </provider>
@@ -1188,8 +1188,8 @@
           <caret line="120" column="39" lean-forward="true" selection-start-line="120" selection-start-column="39" selection-end-line="120" selection-end-column="39" />
           <folding>
             <element signature="e#0#16#0" expanded="true" />
-            <element signature="e#4389#5229#0" expanded="false" />
-            <element signature="e#5543#6226#0" expanded="false" />
+            <marker date="1513692485859" expanded="false" signature="4460:5229" ph="{...}" />
+            <marker date="1513692485859" expanded="false" signature="5621:6226" ph="{...}" />
           </folding>
         </state>
       </provider>
@@ -1221,8 +1221,8 @@
           <caret line="203" column="10" lean-forward="true" selection-start-line="203" selection-start-column="10" selection-end-line="203" selection-end-column="10" />
           <folding>
             <element signature="e#0#16#0" expanded="true" />
-            <element signature="e#4389#5229#0" expanded="false" />
-            <element signature="e#5543#6226#0" expanded="false" />
+            <marker date="1513692485859" expanded="false" signature="4460:5229" ph="{...}" />
+            <marker date="1513692485859" expanded="false" signature="5621:6226" ph="{...}" />
           </folding>
         </state>
       </provider>
@@ -1336,13 +1336,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="jar://$USER_HOME$/.ivy2/cache/org.scala-lang/scala-library/srcs/scala-library-2.11.7-sources.jar!/scala/collection/TraversableOnce.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="289">
-          <caret line="249" column="6" lean-forward="false" selection-start-line="249" selection-start-column="6" selection-end-line="249" selection-end-column="6" />
-        </state>
-      </provider>
-    </entry>
     <entry file="jar://$USER_HOME$/.ivy2/cache/org.scala-lang/scala-library/srcs/scala-library-2.11.7-sources.jar!/scala/collection/Iterator.scala">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="281">
@@ -1368,13 +1361,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="627">
           <caret line="70" column="53" lean-forward="false" selection-start-line="70" selection-start-column="44" selection-end-line="70" selection-end-column="53" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/NeedlemanWunschAligner.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="300">
-          <caret line="20" column="33" lean-forward="true" selection-start-line="20" selection-start-column="33" selection-end-line="20" selection-end-column="33" />
         </state>
       </provider>
     </entry>
@@ -1448,6 +1434,7 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="105">
           <caret line="12" column="28" lean-forward="false" selection-start-line="12" selection-start-column="28" selection-end-line="12" selection-end-column="28" />
+          <folding />
         </state>
       </provider>
     </entry>
@@ -1455,13 +1442,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="120">
           <caret line="8" column="39" lean-forward="true" selection-start-line="8" selection-start-column="39" selection-end-line="8" selection-end-column="39" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="jar://D:/Java/jdk1.8.0_111/src.zip!/java/lang/String.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1170">
-          <caret line="113" column="23" lean-forward="false" selection-start-line="113" selection-start-column="23" selection-end-line="113" selection-end-column="23" />
         </state>
       </provider>
     </entry>
@@ -1473,37 +1453,69 @@
         </state>
       </provider>
     </entry>
+    <entry file="jar://D:/Java/jdk1.8.0_111/src.zip!/java/lang/String.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="506">
+          <caret line="1472" column="12" lean-forward="false" selection-start-line="1472" selection-start-column="12" selection-end-line="1472" selection-end-column="12" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="jar://D:/Java/jdk1.8.0_111/src.zip!/java/lang/Object.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1365">
+          <caret line="114" column="50" lean-forward="true" selection-start-line="114" selection-start-column="50" selection-end-line="114" selection-end-column="50" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="jar://$USER_HOME$/.ivy2/cache/org.scala-lang/scala-library/srcs/scala-library-2.11.7-sources.jar!/scala/collection/TraversableOnce.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="289">
+          <caret line="231" column="6" lean-forward="false" selection-start-line="231" selection-start-column="6" selection-end-line="231" selection-end-column="6" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/Settings.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="285">
-          <caret line="19" column="1" lean-forward="true" selection-start-line="19" selection-start-column="1" selection-end-line="19" selection-end-column="1" />
+        <state relative-caret-position="195">
+          <caret line="13" column="97" lean-forward="true" selection-start-line="13" selection-start-column="97" selection-end-line="13" selection-end-column="97" />
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/Dec.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1496">
-          <caret line="145" column="62" lean-forward="true" selection-start-line="145" selection-start-column="62" selection-end-line="145" selection-end-column="62" />
+        <state relative-caret-position="813">
+          <caret line="162" column="33" lean-forward="false" selection-start-line="162" selection-start-column="33" selection-end-line="162" selection-end-column="33" />
           <folding>
             <element signature="e#0#16#0" expanded="true" />
-            <element signature="e#4389#5229#0" expanded="false" />
-            <element signature="e#5543#6226#0" expanded="false" />
+            <marker date="1513692485859" expanded="false" signature="4460:5229" ph="{...}" />
+            <marker date="1513692485859" expanded="false" signature="5621:6226" ph="{...}" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/ConsensusAlignment.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="252">
-          <caret line="344" column="38" lean-forward="true" selection-start-line="344" selection-start-column="38" selection-end-line="344" selection-end-column="38" />
+        <state relative-caret-position="45">
+          <caret line="122" column="20" lean-forward="true" selection-start-line="122" selection-start-column="20" selection-end-line="122" selection-end-column="20" />
           <folding>
             <element signature="e#0#43#0" expanded="true" />
-            <element signature="e#2075#2800#0" expanded="false" />
-            <element signature="e#3060#7303#0" expanded="false" />
-            <element signature="e#7306#8865#0" expanded="false" />
-            <element signature="e#18483#19013#0" expanded="false" />
+            <element signature="e#2183#3006#1" expanded="false" />
+            <element signature="e#2279#3004#0" expanded="false" />
+            <element signature="e#7942#9881#0" expanded="false" />
+            <element signature="e#19393#19923#0" expanded="false" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/NeedlemanWunschAligner.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="90">
+          <caret line="6" column="0" lean-forward="true" selection-start-line="6" selection-start-column="0" selection-end-line="6" selection-end-column="0" />
+          <folding />
         </state>
       </provider>
     </entry>
