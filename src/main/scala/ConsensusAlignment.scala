@@ -280,7 +280,7 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
       }
       i += 1
     }
-    (2 * count - span, mapping)
+    (2 * pm - tot, mapping)
   }
 
   def reportAllEdgesTuple(kmer: String, report: ArrayBuffer[List[Long]]): Unit = {

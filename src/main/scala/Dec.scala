@@ -1,4 +1,5 @@
 import java.io._
+
 import scala.collection.mutable.ArrayBuffer
 import org.apache.hadoop.io.{LongWritable, Text}
 import org.apache.spark.SparkContext
@@ -6,9 +7,10 @@ import org.apache.spark.SparkConf
 import org.apache.spark.HashPartitioner
 import org.apache.spark.rdd._
 import org.apache.spark._
-import scala.io.Source
 
+import scala.io.Source
 import ConnectedComponent._
+import org.apache.spark.storage.StorageLevel
 
 object Dec {
   final val OO = Settings.OO
@@ -143,16 +145,16 @@ object Dec {
     val javaRuntime = Runtime.getRuntime
     javaRuntime.exec("rm -r " + odir)
     val readsFile = Dec.readFastqFiles(sc)
-    val P1 = readsFile.flatMap(Dec.decomposeKmer).groupByKey(readsFile.getNumPartitions*37)
+    val P1 = readsFile.flatMap(Dec.decomposeKmer)
+//    P1.persist(StorageLevel.DISK_ONLY)
 //        P1.cache()
-//        val KmerCount = P1.map(_._2.size).countByValue().toArray.sorted
-//        val peak = for ( i <- 1 until KmerCount.size-1 if KmerCount(i-1)._2<=KmerCount(i)._2 && KmerCount(i)._2>=KmerCount(i+1)._2) yield KmerCount(i)
-//        val cov = peak.maxBy(_._2)._1*100
-//        println(cov)
-    val cov = 1000000000
-    val P2 = P1.filter(x => (x._2.size > 1) && (x._2.size < cov)).flatMap(Dec.alignByAnchorST)
-    val id_clique = ConnectedComponent.runByNodeList(sc, P2)
-//        P1.unpersist()
+        val KmerCount = P1.mapValues(x=>1).reduceByKey(_+_).map(x => (x._2,1)).reduceByKey(_ + _).collect().sorted
+        val peak = for ( i <- 1 until KmerCount.size-1 if KmerCount(i-1)._2<=KmerCount(i)._2 && KmerCount(i)._2>=KmerCount(i+1)._2) yield KmerCount(i)
+        val cov = peak.maxBy(_._2)._1*10
+        println(cov)
+//    val cov = 1000000000
+    val P2 = P1.groupByKey(10007).filter(x => (x._2.size > 1) && (x._2.size < cov)).flatMap(Dec.alignByAnchorST)
+    val id_clique = ConnectedComponent.runByNodeList(sc, P2, P1)
     val P3 = id_clique.map(kv => if (kv._2 < 0) (-kv._2, -kv._1) else (kv._2, kv._1)).groupByKey()
     //    if (Settings.debugPrint) P3.foreachPartition(printGenomeColumns)
     val P4 = P3.flatMap(judgeColBases)
