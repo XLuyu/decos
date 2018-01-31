@@ -11,18 +11,23 @@ import org.apache.spark._
 import scala.io.Source
 import ConnectedComponent._
 import org.apache.spark.storage.StorageLevel
+import org.apache.spark.util.{DoubleAccumulator, LongAccumulator}
 
 object Dec {
   final val OO = Settings.OO
   val K = Settings.K
 
-  def decomposeKmer(read: (Int, Long, String)): TraversableOnce[(String, (Int, Long, Int, Boolean, String))] = {
+  def decomposeKmer(totalBase:LongAccumulator,totalKmer:LongAccumulator,totalQual:DoubleAccumulator)
+                   (read: (Int, Long, String)): TraversableOnce[(String, (Int, Long, Int, Boolean, String))] = {
     // return: (kmer,(fileno,offset,kmerPos,Complement))
     val (fileno, offset, record) = read
     val lines = record.split("\n")
     val head = lines(0).length + 1
     val sequence = lines(1)
     val quality = lines(3)
+    totalBase.add(sequence.length)
+    totalKmer.add(sequence.length-K+1)
+    totalQual.add(quality.map(x=>math.pow(10,(33-x)/10.0)).sum)
     val compressedSeq = (for (i <- sequence.indices) yield ((quality(i) - 33) * 5 + sequence(i) % 5).toChar).mkString
     for (t <- K to sequence.length() if !sequence.substring(t - K, t).contains('N')) yield
       if ("AC" contains sequence(t - (K + 1) / 2))
@@ -31,7 +36,7 @@ object Dec {
         (Util.reverseComplement(sequence.substring(t - K, t)), (fileno, offset + head, sequence.length() - t, true, compressedSeq))
   }
 
-  def alignByAnchorST(keyValues: (String, Iterable[(Int, Long, Int, Boolean, String)])): TraversableOnce[List[Long]] = {
+  def alignByAnchorST(kmerCov:Int)(keyValues: (String, Iterable[(Int, Long, Int, Boolean, String)])): TraversableOnce[List[Long]] = {
     //    val fileHandles = for ( filename <- Settings.inputFilePath) yield new RandomAccessFile(filename, "r")
     val compressTable = Array('A', 'G', 'C', 'N', 'T')
     val alignmentGroup = ArrayBuffer[ConsensusAlignment]()
@@ -59,7 +64,7 @@ object Dec {
     }
     //    val t2 = System.currentTimeMillis()
     val report = ArrayBuffer[List[Long]]()
-    alignmentGroup.foreach(_.reportAllEdgesTuple(keyValues._1, report))
+    alignmentGroup.foreach(_.reportAllEdgesTuple(keyValues._1, kmerCov, report))
     //    if (report.nonEmpty && Settings.debugPrint) {
     //      val logFile = new FileWriter("/home/x/xieluyu/log/" + keyValues._1)
     //      for (alignment <- alignmentGroup) {
@@ -74,7 +79,8 @@ object Dec {
     report
   }
 
-  def judgeColBases(KVs: (Long, Iterable[Long])): TraversableOnce[(Int, Long, Int, Char, Int)] = {
+  def judgeColBases(kmerCov:Int)(KVs: (Long, Iterable[Long])): TraversableOnce[(Int, Long, Int, Char, Int)] = {
+    val Q2E = (0 to 50).map(x=>math.pow(10,-x/10.0)).toArray
     val table = Array('A', 'C', 'G', 'T', 'N', '-')
     val values = (KVs._1 :: KVs._2.toList).map(x => {
       val complemented = if (x > 0) false else true
@@ -86,14 +92,20 @@ object Dec {
       val fileno = abs % 2
       (fileno, pos, gap, base, quality, complemented)
     })
-    // .filter(x => x._3==0 && x._4!='-')
-    val ACGT = collection.mutable.Map[Char, Long]('A' -> 0, 'C' -> 0, 'G' -> 0, 'T' -> 0, '-' -> 0)
+    val ACGT = collection.mutable.Map[Char, Long]('A' -> 0, 'C' -> 0, 'G' -> 0, 'T' -> 0, '-' -> 0, 'N' -> 0)
     for (value <- values if "ACGT-" contains value._4) ACGT(value._4) += value._5
-    //    for (value <- values if value._1!='N') println(KVs._1.toString+value.toString)
     val (ref, refcnt) = ACGT.maxBy(_._2)
-    if (refcnt <= Settings.CUTTHRESHOLD) return List()
-    for (value <- values if value._4 == 'N' || ACGT(value._4) <= Settings.CUTTHRESHOLD) yield
-      // value._2*(-2*value._1+1) + "\t" + (if (value._6) Util.complement(ref) else ref)
+    //      val e = values.map(x=>Q2E(x._5.toInt)).sum/values.size
+    //      val p = 1-e
+    //      val q = -10*math.log10(e)
+    //      val maxQ = values.groupBy(_._4).mapValues(_.size)
+    //      val N = math.min(cov,ACGT.values.sum)
+    //      val cut = N*math.log((3-3*p)/(2+p))/math.log((1-p)*(1-p)/(p*p+2*p))
+    val Error = Util.errorTestWithMargin(values.map(x=>(x._4,x._5.toInt)),kmerCov*2)
+    //      val Error = maxQ.filter(x => x._1!=ref && ACGT(x._1)<=q+Util.bonimialCDF(x._2+math.min(maxQ(ref),kmerCov*2),p)*q)
+    //      val Error = maxQ.filter(x=>ACGT(x._1)-(expectNo/3*math.min(values.size,2*cov)/values.size+1)*(-10*math.log10(expectNo/values.size)).toInt<=30)
+    //    for (value <- values if value._4 == 'N' || ACGT(value._4) <= Settings.CUTTHRESHOLD) yield
+    for (value <- values if Error(value._4)) yield
       (value._1.toInt, value._2, value._3.toInt, if (value._6) Util.complement(ref) else ref, value._5.toInt)
   }
 
@@ -144,20 +156,31 @@ object Dec {
   def runST(sc: SparkContext, odir: String = "/home/x/xieluyu/output") {
     val javaRuntime = Runtime.getRuntime
     javaRuntime.exec("rm -r " + odir)
+    val totalBase = sc.longAccumulator("Base")
+    val totalKmer = sc.longAccumulator("Kmer")
+    val totalQual = sc.doubleAccumulator("Qual")
     val readsFile = Dec.readFastqFiles(sc)
-    val P1 = readsFile.flatMap(Dec.decomposeKmer)
+    val P1 = readsFile.flatMap(decomposeKmer(totalBase,totalKmer,totalQual))
+    val parallel = Settings.prime.find(_>P1.getNumPartitions*10).getOrElse(Settings.prime.last)
 //    P1.persist(StorageLevel.DISK_ONLY)
-//        P1.cache()
-        val KmerCount = P1.mapValues(x=>1).reduceByKey(_+_).map(x => (x._2,1)).reduceByKey(_ + _).collect().sorted
-        val peak = for ( i <- 1 until KmerCount.size-1 if KmerCount(i-1)._2<=KmerCount(i)._2 && KmerCount(i)._2>=KmerCount(i+1)._2) yield KmerCount(i)
-        val cov = peak.maxBy(_._2)._1*10
-        println(cov)
+//    P1.cache()
+    val KmerCount = P1.mapValues(x=>1).reduceByKey(_+_,parallel).map(x => (x._2,1)).reduceByKey(_ + _).collect().sorted
+    val trough = (1 until KmerCount.length-1).find(i=>KmerCount(i-1)._2>=KmerCount(i)._2 && KmerCount(i)._2<=KmerCount(i+1)._2).get
+    val peak = for ( i <- 1 until KmerCount.size-1 if KmerCount(i-1)._2<=KmerCount(i)._2 && KmerCount(i)._2>=KmerCount(i+1)._2) yield KmerCount(i)
+    val kmerCov = peak.maxBy(_._2)._1
+    val avgErrRate = totalQual.value/totalBase.value
+    val cov = kmerCov/math.pow(1-avgErrRate,K)*totalBase.value/totalKmer.value
+    println(s"[K-mer Spectrum] Trough         = $trough")
+    println(s"[K-mer Spectrum] K-mer Coverage = $kmerCov")
+    println(s"[Dataset]        Avg Err Rate   = $avgErrRate")
+    println(s"[Dataset]        Base  Coverage = $cov")
+    println(s"[Dataset]        Genome Size    = ${totalBase.value/cov}")
 //    val cov = 1000000000
-    val P2 = P1.groupByKey(10007).filter(x => (x._2.size > 1) && (x._2.size < cov)).flatMap(Dec.alignByAnchorST)
+    val P2 = P1.groupByKey(parallel).filter(x => (x._2.size > 1) && (x._2.size < kmerCov*20)).flatMap(Dec.alignByAnchorST(kmerCov))
     val id_clique = ConnectedComponent.runByNodeList(sc, P2, P1)
     val P3 = id_clique.map(kv => if (kv._2 < 0) (-kv._2, -kv._1) else (kv._2, kv._1)).groupByKey()
-    //    if (Settings.debugPrint) P3.foreachPartition(printGenomeColumns)
-    val P4 = P3.flatMap(judgeColBases)
+//    if (Settings.debugPrint) P3.foreachPartition(printGenomeColumns)
+    val P4 = P3.flatMap(judgeColBases(kmerCov))
     P4.saveAsTextFile("file://" + odir)
     //    P4.groupBy(_._1).foreach(writeFastqFile)
   }

@@ -71,7 +71,7 @@ object ConsensusAlignment {
       }
     }
     val result = ArrayBuffer[List[Long]]()
-    ca.reportAllEdgesTuple("CCTCTGCTGGCGCTGGTTGCC", result)
+    ca.reportAllEdgesTuple("CCTCTGCTGGCGCTGGTTGCC",Int.MaxValue, result)
     println(ca.printPileup())
     println(result)
   }
@@ -108,7 +108,7 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
     }
 
     val mapping = Array.fill[Int](groupSeq.length)(-1)
-    val lengthThreshold = Math.log(readSeq.length) / Math.log(2)
+    //  val lengthThreshold = Math.log(readSeq.length) / Math.log(2)
     //    println(readST.pairwiseLCS(groupSeq))
     val LCS = readST.pairwiseLCS(groupSeq).filter(_._3 > Settings.K).filter(compactLength(_) > 2).sortBy(-_._3)
     //
@@ -217,7 +217,7 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
 
   def align(read: MappingRead, readST: SuffixTree): (Int, Array[Int]) = {
     val consensusSeq = consensus.sequence()
-    val (count, span, mapping) = alignOneEnd(consensusSeq, read, readST)
+    val (_, _, mapping) = alignOneEnd(consensusSeq, read, readST)
     var last = -1
     var tot = 0
     var pm = 0
@@ -283,7 +283,7 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
     (2 * pm - tot, mapping)
   }
 
-  def reportAllEdgesTuple(kmer: String, report: ArrayBuffer[List[Long]]): Unit = {
+  def reportAllEdgesTuple(kmer: String, kmerCov:Int, report: ArrayBuffer[List[Long]]): Unit = {
     def baseEncode(read:MappingRead, position: Long, gapCount: Int, baseCode: Int, quality: Int): Long = {
       // tried bitwise operation, but it gathers hashCode of records and skew the partition
       //      if (read.complemented)
@@ -306,7 +306,8 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
     //    val t1 = System.currentTimeMillis()
     //compute pair-wise k-mer intersection
     val KmerSet = new Array[mutable.Set[Int]](this.size)
-    val isAnchoredByMinKmer = Array.ofDim[Boolean](this.size, this.size)
+//    val isAnchoredByMinKmer = Array.ofDim[Boolean](this.size, this.size)
+    val isAnchoredByMinKmer = new Array[mutable.Map[Int,Boolean]](this.size)
     val thishash = kmer.hashCode
     for (i <- this.indices) {
       val seq = this (i).seq
@@ -315,8 +316,9 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
         val kmerhash = Util.minKmerByRC(seq.substring(j, j + Settings.K)).hashCode
         if (kmerhash < thishash) KmerSet(i) += kmerhash
       }
-      for (j <- 0 until i)
-        isAnchoredByMinKmer(i)(j) = (KmerSet(i) intersect KmerSet(j)).isEmpty
+      isAnchoredByMinKmer(i) = mutable.Map[Int,Boolean]()
+//      for (j <- 0 until i)
+//        isAnchoredByMinKmer(i)(j) = (KmerSet(i) intersect KmerSet(j)).isEmpty //TODO: compute by use
     }
     //    val t2 = System.currentTimeMillis()
     // compute column linked list
@@ -352,17 +354,25 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
     val rtable = Array('A', 'C', 'G', 'T', 'N', '-')
     val fingerprint = Array.fill[StringBuilder](this.size)(new StringBuilder())
     val fpQuality = Array.fill[ArrayBuffer[Int]](this.size)(new ArrayBuffer[Int]())
-    for (i <- columns.indices if columnCount(i).count(_._2>Settings.CUTTHRESHOLD)>1) {
-      var last = 0
-      for ((idx,baseCode) <- columns(i)) {
-        var base = rtable((baseCode/2%6).toInt)
-        if (this (idx).complemented) base = Util.complement(base)
-        fingerprint(idx).+=(if (columnCount(i)(base)>Settings.CUTTHRESHOLD) base else ' ')
-        fpQuality(idx).+=((baseCode/12000000000000L%64).toInt)
-        while (last!=idx) {fingerprint(last) += ' '; fpQuality(last) += 40 ; last += 1}
-        last += 1
+    for (i <- columns.indices) {
+      val baseList = columns(i).map(x=>{
+        var base = rtable((x._2/2%6).toInt)
+        if (this (x._1).complemented) base = Util.complement(base)
+        (base,(x._2/12000000000000L%64).toInt)
+      })
+      val errorList = Util.errorTest(baseList,kmerCov)
+      if (errorList.count(_._2==false)>1){
+        var last = 0
+        for ((idx,baseCode) <- columns(i)) {
+          var base = rtable((baseCode/2%6).toInt)
+          if (this (idx).complemented) base = Util.complement(base)
+          fingerprint(idx).+=(if (!errorList(base)) base else ' ')
+          fpQuality(idx).+=((baseCode/12000000000000L%64).toInt)
+          while (last!=idx) {fingerprint(last) += ' '; fpQuality(last) += 40 ; last += 1}
+          last += 1
+        }
+        while (last<this.size) {fingerprint(last) += ' '; fpQuality(last) += 40 ; last += 1}
       }
-      while (last<this.size) {fingerprint(last) += ' '; fpQuality(last) += 40 ; last += 1}
     }
     val fplen = fingerprint.head.length
     father = new Array[Int](this.size)
@@ -411,9 +421,15 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
       for ((idx,baseCode) <- column) {
         val s = father(idx)
         if (!node.contains(s)) { node(s) = List[Long](); prev(s) = List[Int]()}
-        val k = prev(s).iterator
-        if (k.isEmpty || isAnchoredByMinKmer(idx)(k.next))
+        if (prev(s).isEmpty)
           node(s) ::= baseCode * (if (this (idx).complemented) -1 else 1)
+        else {
+          val k = prev(s).head
+          if (!isAnchoredByMinKmer(idx).contains(k))
+            isAnchoredByMinKmer(idx)(k) = (KmerSet(idx) intersect KmerSet(k)).isEmpty
+          if (isAnchoredByMinKmer(idx)(k))
+            node(s) ::= baseCode * (if (this (idx).complemented) -1 else 1)
+        }
         prev(s) ::= idx
       }
       for ( (_,nodelist) <- node if nodelist.size>1) report += nodelist
