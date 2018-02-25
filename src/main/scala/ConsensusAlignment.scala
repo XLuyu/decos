@@ -130,7 +130,7 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
     var lastR = matchSeg.head._1
     var lastG = matchSeg.head._2
     val HeadMapping = ConsensusAlignment.NWaligner.align(groupSeq.substring(lastG - unmatchedGroupHead, lastG).reverse,
-      readSeq.substring(lastR - unmatchedReadHead, lastR).reverse, tailFlex = true)
+      readSeq.substring(lastR - unmatchedReadHead, lastR).reverse, read.qual.slice(lastR - unmatchedReadHead, lastR).reverse, tailFlex = true)
     for (i <- HeadMapping.indices)
       mapping(lastG - 1 - i) = if (HeadMapping(i) == -1) -1 else lastR - 1 - HeadMapping(i)
     for (i <- lastG - unmatchedGroupHead until lastG if mapping(i) != -1 && groupSeq(i) == readSeq(mapping(i))) matchCount += 1
@@ -139,7 +139,7 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
       if (gs - lastG == rs - lastR) {
         for (i <- 0 until (gs - lastG)) mapping(lastG + i) = lastR + i
       } else {
-        val regionMapping = ConsensusAlignment.NWaligner.align(groupSeq.substring(lastG, gs), readSeq.substring(lastR, rs))
+        val regionMapping = ConsensusAlignment.NWaligner.align(groupSeq.substring(lastG, gs), readSeq.substring(lastR, rs), read.qual.slice(lastR, rs))
         for (i <- regionMapping.indices)
           mapping(lastG + i) = if (regionMapping(i) == -1) -1 else lastR + regionMapping(i)
       }
@@ -153,7 +153,7 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
     val unmatchedReadTail = Math.min(readSeq.length - lastR, groupSeq.length - lastG + 2)
     val unmatchedGroupTail = Math.min(groupSeq.length - lastG, readSeq.length - lastR + 2)
     val tailMapping = ConsensusAlignment.NWaligner.align(groupSeq.substring(lastG, lastG + unmatchedGroupTail),
-      readSeq.substring(lastR, lastR + unmatchedReadTail), tailFlex = true)
+      readSeq.substring(lastR, lastR + unmatchedReadTail), read.qual.slice(lastR, lastR + unmatchedReadTail), tailFlex = true)
     for (i <- tailMapping.indices)
       mapping(lastG + i) = if (tailMapping(i) == -1) -1 else lastR + tailMapping(i)
     for (i <- lastG until lastG + unmatchedGroupTail if mapping(i) != -1 && groupSeq(i) == readSeq(mapping(i))) matchCount += 1

@@ -166,7 +166,7 @@ object Dec {
 //    P1.cache()
     val KmerCount = P1.mapValues(x=>1).reduceByKey(_+_,parallel).map(x => (x._2,1)).reduceByKey(_ + _).collect().sorted
     val trough = (1 until KmerCount.length-1).find(i=>KmerCount(i-1)._2>=KmerCount(i)._2 && KmerCount(i)._2<=KmerCount(i+1)._2).get
-    val peak = for ( i <- 1 until KmerCount.size-1 if KmerCount(i-1)._2<=KmerCount(i)._2 && KmerCount(i)._2>=KmerCount(i+1)._2) yield KmerCount(i)
+    val peak = for ( i <- trough until KmerCount.size-1 if KmerCount(i-1)._2<=KmerCount(i)._2 && KmerCount(i)._2>=KmerCount(i+1)._2) yield KmerCount(i)
     val kmerCov = peak.maxBy(_._2)._1
     val avgErrRate = totalQual.value/totalBase.value
     val cov = kmerCov/math.pow(1-avgErrRate,K)*totalBase.value/totalKmer.value
