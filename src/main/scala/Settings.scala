@@ -11,12 +11,12 @@ object Settings {
   val CUTTHRESHOLD = 60
   val K = 21
   val MATCH_RATE = 0.9
-//  val inputFilePath = Array("/home/x/xieluyu/reads/Ecoli1.fq", "/home/x/xieluyu/reads/Ecoli2.fq")
+  val inputFilePath = Array("/home/x/xieluyu/reads/Ecoli1.fq", "/home/x/xieluyu/reads/Ecoli2.fq")
 //  val inputFilePath = Array("/research/wongls-group/xieluyu/benchmark/simulated/fv/D03subset.fq")
 //  val inputFilePath = Array("/research/wongls-group/xieluyu/benchmark/simulated/Ecoli/Ecoli.fq")
 //    val inputFilePath = Array("/research/wongls-group/xieluyu/benchmark/simulated/Ecoli100/Ecoli100.fq")
 //  val inputFilePath = Array("/research/wongls-group/xieluyu/benchmark/illumina2014/Hiseq/L.pneumophila_SRR801797.fastq")
 //  val inputFilePath = Array("/research/wongls-group/xieluyu/benchmark/illumina2014/Hiseq/E.coli_SRR490124.fastq")
-    val inputFilePath = Array("/research/wongls-group/xieluyu/benchmark/illumina2014/Hiseq/S.cerevisiae_ERR422544.fastq")
+//    val inputFilePath = Array("/research/wongls-group/xieluyu/benchmark/illumina2014/Hiseq/S.cerevisiae_ERR422544.fastq")
 //  val inputFilePath = Array("/research/wongls-group/xieluyu/benchmark/illumina2014/Hiseq/Human_ERX069715.fastq")
 }
