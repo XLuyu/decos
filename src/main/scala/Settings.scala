@@ -12,7 +12,7 @@ object Settings {
   val K = 21
   val MATCH_RATE = 0.9
   val inputFilePath = Array("/home/x/xieluyu/reads/Ecoli1.fq", "/home/x/xieluyu/reads/Ecoli2.fq")
-//  val inputFilePath = Array("/research/wongls-group/xieluyu/benchmark/simulated/fv/D03subset.fq")
+//  val inputFilePath = Array("/research/wongls-group/xieluyu/benchmark/simulated/fv/D03.fq")
 //  val inputFilePath = Array("/research/wongls-group/xieluyu/benchmark/simulated/Ecoli/Ecoli.fq")
 //    val inputFilePath = Array("/research/wongls-group/xieluyu/benchmark/simulated/Ecoli100/Ecoli100.fq")
 //  val inputFilePath = Array("/research/wongls-group/xieluyu/benchmark/illumina2014/Hiseq/L.pneumophila_SRR801797.fastq")

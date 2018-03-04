@@ -101,7 +101,7 @@ object Dec {
     //      val maxQ = values.groupBy(_._4).mapValues(_.size)
     //      val N = math.min(cov,ACGT.values.sum)
     //      val cut = N*math.log((3-3*p)/(2+p))/math.log((1-p)*(1-p)/(p*p+2*p))
-    val Error = Util.errorTestWithMargin(values.map(x=>(x._4,x._5.toInt)),kmerCov*2)
+    val Error = Util.errorTest(values.map(x=>(x._4,x._5.toInt)),kmerCov*2,1)
     //      val Error = maxQ.filter(x => x._1!=ref && ACGT(x._1)<=q+Util.bonimialCDF(x._2+math.min(maxQ(ref),kmerCov*2),p)*q)
     //      val Error = maxQ.filter(x=>ACGT(x._1)-(expectNo/3*math.min(values.size,2*cov)/values.size+1)*(-10*math.log10(expectNo/values.size)).toInt<=30)
     //    for (value <- values if value._4 == 'N' || ACGT(value._4) <= Settings.CUTTHRESHOLD) yield
