@@ -3,7 +3,7 @@
   */
 
 object Settings {
-  val prime = Array(101,251,503,1009,2003,4001,8009,16001,30011,60013,120011)
+  val prime = Array(2003,4001,8009,16001)
   val OO = 2000000000
   val debugPrint = true
   val MAX_READ_LEN = 150

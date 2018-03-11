@@ -31,6 +31,44 @@ object Util {
     }
     0
   }
+  def computeEQSByDP(qual:Array[Int]): Double ={
+    val q = qual.sorted
+    val e = q.map(Q2E)
+    val N = qual.length
+    val M = qual.sum
+    var m = 0
+    val f = Array.ofDim[Double](N + 1, M + 1)
+    f(0)(0) = 1
+    for ( i <- 1 to N ) {
+      m += q(i-1)
+      for ( j <- 0 to m){
+        f(i)(j) = f(i-1)(j)*(1-e(i-1))
+        if (j>=q(i-1)) f(i)(j) += f(i-1)(j-q(i-1))*e(i-1)
+      }
+    }
+    var CDF = 0.0
+    for ( i <- 0 to m){
+      CDF += f(N)(i)
+//      println(i,f(N)(i))
+      if (CDF>=0.9999) return i
+    }
+    m
+  }
+
+  def errorTestByDP(bases: Iterable[(Char, Int)], coverageUpperbound: Int = Int.MaxValue): Map[Char,Boolean] = {
+    if (bases.size>1000) return errorTest(bases,coverageUpperbound)
+    val qualities = bases.groupBy(_._1).mapValues(_.map(_._2).toArray.sorted).mapValues(x=>x.slice(0,Math.min(coverageUpperbound,x.length)))
+    val qualSum = qualities.map(x => (x._1,if (x._1=='N') 0 else x._2.sum)).toArray.sortBy(_._2)
+    val e = bases.map(x=>Q2E(x._2)).sum/bases.size
+    val p = 1-e
+    val q = -10*math.log10(e)
+    val cdf = computeEQSByDP(qualities.filter(_._1!='N').values.reduce((a,b)=>a++b))
+//    if (bases.size<=2) return qualSum.toMap.mapValues( _ == 0 )
+    for ( i <- 1 to qualSum.length)
+      if (qualSum.map(_._2).slice(0,i).sum>cdf)
+        return qualSum.indices.map(j=>(qualSum(j)._1,j<i-1)).toMap
+    qualSum.toMap.mapValues( _ == 0 )
+  }
   def errorTest(bases: Iterable[(Char, Int)], coverageUpperbound: Int = Int.MaxValue, marginFold:Double = 0): Map[Char,Boolean] = {
     val count = bases.groupBy(_._1).mapValues(_.size)
     val qualSum = bases.groupBy(_._1).mapValues(x => if (x.head._1=='N') 0 else x.map(_._2).sum)

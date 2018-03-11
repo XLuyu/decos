@@ -111,11 +111,11 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
 
     val mapping = Array.fill[Int](groupSeq.length)(-1)
     //  val lengthThreshold = Math.log(readSeq.length) / Math.log(2)
-    //    println(readST.pairwiseLCS(groupSeq))
+    //  println(readST.pairwiseLCS(groupSeq))
     var LCS = readST.pairwiseLCS(groupSeq).filter(_._3 > Settings.K).filter(compactLength(_) > 2).sortBy(-_._3)
     // LCS = List[(read, group, length)]
-    //        println(groupSeq)
-    //        println(LCS)
+    // println(groupSeq)
+    // println(LCS)
 
     val offset = mutable.Map[Int,Int]().withDefaultValue(0)
     LCS.foreach( x => offset(x._1-x._2) += x._3 )
@@ -183,8 +183,6 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
       mapping(i) = -3
       i -= 1
     }
-    //    for (i <- mapping) printf("%d,",i)
-    //    println()
     (matchCount, spanCount, mapping)
   }
   def updateConsensus(consensus: ConsensusSequence, mapping: Array[Int], seq: String, readColumn: Array[Int]) {
@@ -318,10 +316,8 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
         }
       }
     }
-    //    val t1 = System.currentTimeMillis()
     //compute pair-wise k-mer intersection
     val KmerSet = new Array[mutable.Set[Int]](this.size)
-//    val isAnchoredByMinKmer = Array.ofDim[Boolean](this.size, this.size)
     val isAnchoredByMinKmer = new Array[mutable.Map[Int,Boolean]](this.size)
     val thishash = kmer.hashCode
     for (i <- this.indices) {
@@ -332,10 +328,7 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
         if (kmerhash < thishash) KmerSet(i) += kmerhash
       }
       isAnchoredByMinKmer(i) = mutable.Map[Int,Boolean]()
-//      for (j <- 0 until i)
-//        isAnchoredByMinKmer(i)(j) = (KmerSet(i) intersect KmerSet(j)).isEmpty //TODO: compute by use
     }
-    //    val t2 = System.currentTimeMillis()
     // compute column linked list
     val table = mutable.Map[Char, Int]('A' -> 0, 'C' -> 1, 'G' -> 2, 'T' -> 3, 'N' -> 4, '-' -> 5)
     val columns = Array.fill[ArrayBuffer[(Int, Long)]](consensus.columnID.size)(ArrayBuffer[(Int, Long)]())
@@ -365,7 +358,6 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
         refidx += 1
       }
     }
-    //    val t3 = System.currentTimeMillis()
     val rtable = Array('A', 'C', 'G', 'T', 'N', '-')
     val fingerprint = Array.fill[StringBuilder](this.size)(new StringBuilder())
     val fpQuality = Array.fill[ArrayBuffer[Int]](this.size)(new ArrayBuffer[Int]())
@@ -429,7 +421,6 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
         father(idx) = fpCluster(fp2idx(fingerprint(idx)))
       }
     }
-    //    val t4 = System.currentTimeMillis()
     for (column <- columns) {
       val node = mutable.Map[Int,List[Long]]()
       val prev = mutable.Map[Int,List[Int]]()
@@ -449,8 +440,6 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
       }
       for ( (_,nodelist) <- node if nodelist.size>1) report += nodelist
     }
-    //    val t5 = System.currentTimeMillis()
-    //    println("In report:",t2-t1,t3-t2,t4-t3,t5-t4)
   }
 
   def printPileup(): String = {

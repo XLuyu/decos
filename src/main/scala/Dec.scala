@@ -37,7 +37,6 @@ object Dec {
   }
 
   def alignByAnchorST(kmerCov:Int)(keyValues: (String, Iterable[(Int, Long, Int, Boolean, String)])): TraversableOnce[List[Long]] = {
-    //    val fileHandles = for ( filename <- Settings.inputFilePath) yield new RandomAccessFile(filename, "r")
     val compressTable = Array('A', 'G', 'C', 'N', 'T')
     val alignmentGroup = ArrayBuffer[ConsensusAlignment]()
     val Values = keyValues._2.toArray.sortBy(x => (-x._3, x._2))
@@ -80,7 +79,6 @@ object Dec {
   }
 
   def judgeColBases(kmerCov:Int)(KVs: (Long, Iterable[Long])): TraversableOnce[(Int, Long, Int, Char, Int)] = {
-    val Q2E = (0 to 50).map(x=>math.pow(10,-x/10.0)).toArray
     val table = Array('A', 'C', 'G', 'T', 'N', '-')
     val values = (KVs._1 :: KVs._2.toList).map(x => {
       val complemented = if (x > 0) false else true
@@ -95,16 +93,7 @@ object Dec {
     val ACGT = collection.mutable.Map[Char, Long]('A' -> 0, 'C' -> 0, 'G' -> 0, 'T' -> 0, '-' -> 0, 'N' -> 0)
     for (value <- values if "ACGT-" contains value._4) ACGT(value._4) += value._5
     val (ref, refcnt) = ACGT.maxBy(_._2)
-    //      val e = values.map(x=>Q2E(x._5.toInt)).sum/values.size
-    //      val p = 1-e
-    //      val q = -10*math.log10(e)
-    //      val maxQ = values.groupBy(_._4).mapValues(_.size)
-    //      val N = math.min(cov,ACGT.values.sum)
-    //      val cut = N*math.log((3-3*p)/(2+p))/math.log((1-p)*(1-p)/(p*p+2*p))
     val Error = Util.errorTest(values.map(x=>(x._4,x._5.toInt)),kmerCov*2,1)
-    //      val Error = maxQ.filter(x => x._1!=ref && ACGT(x._1)<=q+Util.bonimialCDF(x._2+math.min(maxQ(ref),kmerCov*2),p)*q)
-    //      val Error = maxQ.filter(x=>ACGT(x._1)-(expectNo/3*math.min(values.size,2*cov)/values.size+1)*(-10*math.log10(expectNo/values.size)).toInt<=30)
-    //    for (value <- values if value._4 == 'N' || ACGT(value._4) <= Settings.CUTTHRESHOLD) yield
     for (value <- values if Error(value._4)) yield
       (value._1.toInt, value._2, value._3.toInt, if (value._6) Util.complement(ref) else ref, value._5.toInt)
   }
@@ -122,7 +111,7 @@ object Dec {
         val base = if (complemented) Util.complement(table((abs / 2 % 6).toInt)) else table((abs / 2 % 6).toInt)
         val fileno = abs % 2
         (fileno, pos, gap, base, quality, complemented)
-      }) //.filter(x => x._3==0 && "ACGTN".contains(x._4))
+      })
       logFile.write(values.mkString(" ") + "\n")
     }
     logFile.close()
@@ -161,12 +150,12 @@ object Dec {
     val totalQual = sc.doubleAccumulator("Qual")
     val readsFile = Dec.readFastqFiles(sc)
     val P1 = readsFile.flatMap(decomposeKmer(totalBase,totalKmer,totalQual))
-    val parallel = Settings.prime.find(_>P1.getNumPartitions*10).getOrElse(Settings.prime.last)
+    val parallel = Settings.prime.find(_>P1.getNumPartitions*5).getOrElse(Settings.prime.last)
 //    P1.persist(StorageLevel.DISK_ONLY)
 //    P1.cache()
     val KmerCount = P1.mapValues(x=>1).reduceByKey(_+_,parallel).map(x => (x._2,1)).reduceByKey(_ + _).collect().sorted
     val trough = (1 until KmerCount.length-1).find(i=>KmerCount(i-1)._2>=KmerCount(i)._2 && KmerCount(i)._2<=KmerCount(i+1)._2).get
-    val peak = for ( i <- trough until KmerCount.size-1 if KmerCount(i-1)._2<=KmerCount(i)._2 && KmerCount(i)._2>=KmerCount(i+1)._2) yield KmerCount(i)
+    val peak = for (i <- trough until KmerCount.length-1 if KmerCount(i-1)._2<=KmerCount(i)._2 && KmerCount(i)._2>=KmerCount(i+1)._2) yield KmerCount(i)
     val kmerCov = peak.maxBy(_._2)._1
     val avgErrRate = totalQual.value/totalBase.value
     val cov = kmerCov/math.pow(1-avgErrRate,K)*totalBase.value/totalKmer.value
@@ -175,14 +164,12 @@ object Dec {
     println(s"[Dataset]        Avg Err Rate   = $avgErrRate")
     println(s"[Dataset]        Base  Coverage = $cov")
     println(s"[Dataset]        Genome Size    = ${totalBase.value/cov}")
-//    val cov = 1000000000
     val P2 = P1.groupByKey(parallel).filter(x => (x._2.size > 1) && (x._2.size < kmerCov*20)).flatMap(Dec.alignByAnchorST(kmerCov))
     val id_clique = ConnectedComponent.runByNodeList(sc, P2, P1)
     val P3 = id_clique.map(kv => if (kv._2 < 0) (-kv._2, -kv._1) else (kv._2, kv._1)).groupByKey()
 //    if (Settings.debugPrint) P3.foreachPartition(printGenomeColumns)
     val P4 = P3.flatMap(judgeColBases(kmerCov))
     P4.saveAsTextFile("file://" + odir)
-    //    P4.groupBy(_._1).foreach(writeFastqFile)
   }
 
   def main(args: Array[String]) {
@@ -194,6 +181,6 @@ object Dec {
     sc.setLogLevel("WARN")
     sc.hadoopConfiguration.setInt("mapred.max.split.size", 4 * 1024 * 1024) //mapreduce.input.fileinputformat.split.maxsize
     runST(sc)
-    println("[ DECOS ] finished successfully!")
+    println("\n[DECOS] finished successfully!\n")
   }
 }
