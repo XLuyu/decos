@@ -8,7 +8,7 @@ import org.apache.spark._
   * Created by workshop on 04-Jul-17.
   */
 
-class MappingRead(fileNumber: Int, offset: Long, pos: Int, rawSeq: String, quality: IndexedSeq[Int], complement: Boolean = false) {
+class MappingRead(thishash:Int, fileNumber: Int, offset: Long, pos: Int, rawSeq: String, quality: IndexedSeq[Int], complement: Boolean = false) {
   val fileno = fileNumber
   val id = offset
   var complemented = complement
@@ -16,6 +16,11 @@ class MappingRead(fileNumber: Int, offset: Long, pos: Int, rawSeq: String, quali
   var seq = if (complement) Util.reverseComplement(rawSeq) else rawSeq
   val qual = if (complement) quality.reverse else quality
   var column = Array.fill(seq.length)(-1)
+  val kmerset = mutable.Set[Int]()
+  for (j <- 0 to seq.length - Settings.K) {
+    val kmerhash = Util.minKmerByRC(seq.substring(j, j + Settings.K)).hashCode
+    if (kmerhash < thishash) kmerset += kmerhash
+  }
 }
 
 class ConsensusSequence(init: String) {
@@ -54,27 +59,27 @@ class ConsensusSequence(init: String) {
 
 object ConsensusAlignment {
   val NWaligner = new NeedlemanWunschAligner(Settings.MAX_READ_LEN * 2, Settings.MAX_INDEL)
-  def main(args: Array[String]): Unit = {
-    val readArray = ArrayBuffer[MappingRead]()
-    var n = 0
-    var ca: ConsensusAlignment = null
-    var r: (Int, Array[Int]) = null
-    for (line <- Source.fromFile("Demo.txt").getLines) {
-      n += 1
-      readArray += new MappingRead(0, n, 1, line, line.map(_/1), true)
-      if (n == 1) {
-        ca = new ConsensusAlignment(readArray(0))
-      } else {
-        r = ca.align(readArray.last, new SuffixTree(readArray.last.seq))
-        ca.joinAndUpdate(readArray.last, r._2)
-        println(ca.printPileup())
-      }
-    }
-    val result = ArrayBuffer[List[Long]]()
-    ca.reportAllEdgesTuple("CCTCTGCTGGCGCTGGTTGCC",Int.MaxValue, result)
-    println(ca.printPileup())
-    println(result)
-  }
+//  def main(args: Array[String]): Unit = {
+//    val readArray = ArrayBuffer[MappingRead]()
+//    var n = 0
+//    var ca: ConsensusAlignment = null
+//    var r: (Int, Array[Int]) = null
+//    for (line <- Source.fromFile("Demo.txt").getLines) {
+//      n += 1
+//      readArray += new MappingRead(0, n, 1, line, line.map(_/1), true)
+//      if (n == 1) {
+//        ca = new ConsensusAlignment(readArray(0))
+//      } else {
+//        r = ca.align(readArray.last, new SuffixTree(readArray.last.seq))
+//        ca.joinAndUpdate(readArray.last, r._2)
+//        println(ca.printPileup())
+//      }
+//    }
+//    val result = ArrayBuffer[List[Long]]()
+//    ca.reportAllEdgesTuple("CCTCTGCTGGCGCTGGTTGCC",Int.MaxValue, result)
+//    println(ca.printPileup())
+//    println(result)
+//  }
 }
 
 class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
@@ -234,17 +239,21 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
     var last = -1
     var tot = 0
     var pm = 0
+    val qseq = ArrayBuffer[(Char, Int)]()
     if (mapping != null){
       for (i <- mapping.indices) {
         if (mapping(i) > -1) {
           if (last != -1 && last + 1 != mapping(i)) {
             tot += read.qual.slice(last+1,mapping(i)).sum
+            qseq.appendAll(read.qual.slice(last+1,mapping(i)).map(x=>('X',x)))
           }
           if (consensusSeq(i)==read.seq(mapping(i))) pm += read.qual(mapping(i))
+          if (consensusSeq(i)==read.seq(mapping(i))) qseq.append(('Y',read.qual(mapping(i)))) else qseq.append(('X',read.qual(mapping(i))))
           tot += read.qual(mapping(i))
           last = mapping(i)
         } else if (mapping(i) == -1) {
           tot += (read.qual(last)+read.qual(last+1))/2
+          qseq.append(('X',(read.qual(last)+read.qual(last+1))/2))
         }
       }
     }
@@ -322,11 +331,7 @@ class ConsensusAlignment(read: MappingRead) extends ArrayBuffer[MappingRead]() {
     val thishash = kmer.hashCode
     for (i <- this.indices) {
       val seq = this (i).seq
-      KmerSet(i) = mutable.Set[Int]()
-      for (j <- 0 to seq.length - Settings.K) {
-        val kmerhash = Util.minKmerByRC(seq.substring(j, j + Settings.K)).hashCode
-        if (kmerhash < thishash) KmerSet(i) += kmerhash
-      }
+      KmerSet(i) = this(i).kmerset
       isAnchoredByMinKmer(i) = mutable.Map[Int,Boolean]()
     }
     // compute column linked list

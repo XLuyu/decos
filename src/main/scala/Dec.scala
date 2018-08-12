@@ -17,17 +17,27 @@ object Dec {
   final val OO = Settings.OO
   val K = Settings.K
 
-  def decomposeKmer(totalBase:LongAccumulator,totalKmer:LongAccumulator,totalQual:DoubleAccumulator)
-                   (read: (Int, Long, String)): TraversableOnce[(String, (Int, Long, Int, Boolean, String))] = {
+  def decomposeKmerWithoutRead(totalBase:LongAccumulator,totalKmer:LongAccumulator,totalQual:DoubleAccumulator)
+                   (read: (Int, Long, String)): TraversableOnce[(String,Int)] = {
+    // return: (kmer,(fileno,offset,kmerPos,Complement))
+    val (_, _, record) = read
+    val lines = record.split("\n")
+    val sequence = lines(1)
+    val quality = lines(3)
+    totalBase.add(sequence.length)
+    totalKmer.add(sequence.length-K+1)
+    totalQual.add(quality.map(x=>math.pow(10,(33-x)/10.0)).sum)
+    for (t <- K to sequence.length() if !sequence.substring(t - K, t).contains('N')) yield
+      if ("AC" contains sequence(t - (K + 1) / 2)) (sequence.substring(t - K, t),1)
+      else (Util.reverseComplement(sequence.substring(t - K, t)),1)
+  }
+  def decomposeKmer(read: (Int, Long, String)): TraversableOnce[(String, (Int, Long, Int, Boolean, String))] = {
     // return: (kmer,(fileno,offset,kmerPos,Complement))
     val (fileno, offset, record) = read
     val lines = record.split("\n")
     val head = lines(0).length + 1
     val sequence = lines(1)
     val quality = lines(3)
-    totalBase.add(sequence.length)
-    totalKmer.add(sequence.length-K+1)
-    totalQual.add(quality.map(x=>math.pow(10,(33-x)/10.0)).sum)
     val compressedSeq = (for (i <- sequence.indices) yield ((quality(i) - 33) * 5 + sequence(i) % 5).toChar).mkString
     for (t <- K to sequence.length() if !sequence.substring(t - K, t).contains('N')) yield
       if ("AC" contains sequence(t - (K + 1) / 2))
@@ -40,11 +50,17 @@ object Dec {
     val compressTable = Array('A', 'G', 'C', 'N', 'T')
     val alignmentGroup = ArrayBuffer[ConsensusAlignment]()
     val Values = keyValues._2.toArray.sortBy(x => (-x._3, x._2))
+    val report = ArrayBuffer[List[Long]]()
     //    val t1 = System.currentTimeMillis()
+    val reads = ArrayBuffer[MappingRead]()
     for ((fileno, offset, pos, compl, cseq) <- Values) {
       val seq = cseq.map(x => compressTable(x % 5))
       val qual = cseq.map(_ / 5)
-      val read = new MappingRead(fileno, offset, pos, seq, qual, compl)
+      val read = new MappingRead(keyValues._1.hashCode, fileno, offset, pos, seq, qual, compl)
+      reads.append(read)
+    }
+    if ((1 until reads.length).map(i=>(reads(i).kmerset intersect reads(i-1).kmerset).isEmpty).indexOf(true)== -1) return report
+    for (read <- reads){
       val readST = new SuffixTree(read.seq)
       var best = -1
       var bestAlign: (Int, Array[Int]) = null
@@ -62,7 +78,6 @@ object Dec {
       }
     }
     //    val t2 = System.currentTimeMillis()
-    val report = ArrayBuffer[List[Long]]()
     alignmentGroup.foreach(_.reportAllEdgesTuple(keyValues._1, kmerCov, report))
     //    if (report.nonEmpty && Settings.debugPrint) {
     //      val logFile = new FileWriter("/home/x/xieluyu/log/" + keyValues._1)
@@ -149,11 +164,12 @@ object Dec {
     val totalKmer = sc.longAccumulator("Kmer")
     val totalQual = sc.doubleAccumulator("Qual")
     val readsFile = Dec.readFastqFiles(sc)
-    val P1 = readsFile.flatMap(decomposeKmer(totalBase,totalKmer,totalQual))
+    val P1 = readsFile.flatMap(decomposeKmer)
     val parallel = Settings.prime.find(_>P1.getNumPartitions*5).getOrElse(Settings.prime.last)
 //    P1.persist(StorageLevel.DISK_ONLY)
 //    P1.cache()
-    val KmerCount = P1.mapValues(x=>1).reduceByKey(_+_,parallel).map(x => (x._2,1)).reduceByKey(_ + _).collect().sorted
+    val KmerCount = readsFile.flatMap(decomposeKmerWithoutRead(totalBase,totalKmer,totalQual))
+                    .reduceByKey(_+_,parallel).map(x => (x._2,1)).reduceByKey(_ + _).collect().sorted
     val trough = (1 until KmerCount.length-1).find(i=>KmerCount(i-1)._2>=KmerCount(i)._2 && KmerCount(i)._2<=KmerCount(i+1)._2).get
     val peak = for (i <- trough until KmerCount.length-1 if KmerCount(i-1)._2<=KmerCount(i)._2 && KmerCount(i)._2>=KmerCount(i+1)._2) yield KmerCount(i)
     val kmerCov = peak.maxBy(_._2)._1
@@ -170,13 +186,13 @@ object Dec {
 //    if (Settings.debugPrint) P3.foreachPartition(printGenomeColumns)
     val P4 = P3.flatMap(judgeColBases(kmerCov))
     P4.saveAsTextFile("file://" + odir)
+    javaRuntime.exec(f"cat $odir/part* > $odir/result")
   }
 
   def main(args: Array[String]) {
-    val conf = new SparkConf().setAppName("decos")
-      .registerKryoClasses(Array[Class[_]](
-        Class.forName("org.apache.hadoop.io.LongWritable"),
-        Class.forName("org.apache.hadoop.io.Text")))
+    new Arg(args)
+    val conf = new SparkConf().setAppName("decos").registerKryoClasses(Array[Class[_]](
+        Class.forName("org.apache.hadoop.io.LongWritable"),Class.forName("org.apache.hadoop.io.Text")))
     val sc = new SparkContext(conf)
     sc.setLogLevel("WARN")
     sc.hadoopConfiguration.setInt("mapred.max.split.size", 4 * 1024 * 1024) //mapreduce.input.fileinputformat.split.maxsize

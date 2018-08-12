@@ -69,13 +69,13 @@ object Util {
         return qualSum.indices.map(j=>(qualSum(j)._1,j<i-1)).toMap
     qualSum.toMap.mapValues( _ == 0 )
   }
-  def errorTest(bases: Iterable[(Char, Int)], coverageUpperbound: Int = Int.MaxValue, marginFold:Double = 0): Map[Char,Boolean] = {
+  def errorTest(bases: Iterable[(Char, Int)], coverageUpperbound: Int = Int.MaxValue, marginFold:Double = 0, Fold:Double = 1): Map[Char,Boolean] = {
     val count = bases.groupBy(_._1).mapValues(_.size)
     val qualSum = bases.groupBy(_._1).mapValues(x => if (x.head._1=='N') 0 else x.map(_._2).sum)
     val ref = qualSum.maxBy(_._2)._1
     val e = bases.map(x=>Q2E(x._2)).sum/bases.size
     val p = 1-e
     val q = -10*math.log10(e)
-    count.map(x => (x._1, x._1!=ref && qualSum(x._1)<=marginFold*q+Util.binomialCDF(x._2+math.min(count(ref),coverageUpperbound),p)*q))
+    count.map(x => (x._1, x._1!=ref && qualSum(x._1)<=marginFold*q+Fold*Util.binomialCDF(x._2+math.min(count(ref),coverageUpperbound),p)*q))
   }
 }
